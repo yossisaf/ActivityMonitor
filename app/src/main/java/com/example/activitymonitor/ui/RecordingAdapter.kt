@@ -5,6 +5,7 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
@@ -12,8 +13,10 @@ import com.example.activitymonitor.R
 import java.io.File
 import java.util.Locale
 
-class RecordingAdapter(private val items: List<File>) :
-    RecyclerView.Adapter<RecordingAdapter.Holder>() {
+class RecordingAdapter(
+    private val items: List<File>,
+    private val onDelete: (File) -> Unit
+) : RecyclerView.Adapter<RecordingAdapter.Holder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
         Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_recording, parent, false))
@@ -22,9 +25,10 @@ class RecordingAdapter(private val items: List<File>) :
 
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(items[position])
 
-    class Holder(private val view: View) : RecyclerView.ViewHolder(view) {
+    inner class Holder(private val view: View) : RecyclerView.ViewHolder(view) {
         private val name = view.findViewById<TextView>(R.id.recordingName)
         private val meta = view.findViewById<TextView>(R.id.recordingMeta)
+        private val delete = view.findViewById<Button>(R.id.recordingDelete)
 
         fun bind(file: File) {
             name.text = file.name
@@ -44,6 +48,16 @@ class RecordingAdapter(private val items: List<File>) :
                         }
                     )
                 }
+            }
+            delete.setOnClickListener {
+                android.app.AlertDialog.Builder(view.context)
+                    .setTitle("מחיקת הקלטה")
+                    .setMessage("למחוק את ההקלטה הזו?")
+                    .setNegativeButton("ביטול", null)
+                    .setPositiveButton("מחק") { _, _ ->
+                        if (file.delete()) onDelete(file)
+                    }
+                    .show()
             }
         }
 
