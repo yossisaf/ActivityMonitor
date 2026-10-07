@@ -54,6 +54,8 @@ class AppAdapter(
             recordToggle.setOnCheckedChangeListener { _, checked -> onRecordingToggle(item.packageName, checked) }
 
             itemView.setOnClickListener { onClick(item) }
+            itemView.contentDescription =
+                "${item.name}. לחיצה מציגה את הפעילות. ניתן בנפרד להפעיל מעקב ותיעוד מסך."
         }
     }
 }
