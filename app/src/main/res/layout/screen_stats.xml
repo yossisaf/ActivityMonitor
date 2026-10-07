@@ -1,13 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-        <TextView android:id="@+id/statsSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
-        <Button android:id="@+id/openBattery" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="פתיחת מסך סוללה" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="פיזור אירועים לפי שעה" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
-        <com.example.activitymonitor.ui.BarChartView android:id="@+id/statsChart" android:layout_width="match_parent" android:layout_height="190dp" android:layout_marginTop="6dp" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="סוגי אירועים" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
-        <TextView android:id="@+id/statsEventTypes" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="אפליקציות לפי פעילות שנקלטה" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
-        <TextView android:id="@+id/statsApps" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="14dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="סיכום 7 הימים האחרונים"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/statsSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:textColor="@color/text_primary"
+            android:lineSpacingExtra="3dp" />
+
+        <Button
+            android:id="@+id/openBattery"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="10dp"
+            android:text="בדיקת נתוני סוללה"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:background="@drawable/bg_action" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="מתי הפעילות מתרחשת?"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <com.example.activitymonitor.ui.BarChartView
+            android:id="@+id/statsChart"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:layout_marginTop="7dp"
+            android:background="@drawable/bg_card" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="סוגי הפעולות שנקלטו"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/statsEventTypes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="האפליקציות הפעילות ביותר"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/statsApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:textColor="@color/text_primary" />
     </LinearLayout>
 </ScrollView>
