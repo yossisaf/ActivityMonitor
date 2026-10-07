@@ -36,19 +36,26 @@ jobs:
       - name: Build release
         run: gradle --no-daemon --stacktrace assembleRelease
 
-      - name: Verify APK
+      - name: Validate APK package
         run: |
           APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" | head -n 1)
           test -n "$APK"
           echo "APK=$APK" >> "$GITHUB_ENV"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
-          sha256sum "$APK" | tee "$APK.sha256"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" >/dev/null
 
-      - name: Upload release APK
+      - name: Collect unsigned APK and signer
+        run: |
+          rm -rf out
+          mkdir -p out
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          cp "$APK" out/ActivityMonitor-release-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" out/apksigner.jar
+          sha256sum out/ActivityMonitor-release-unsigned.apk > out/ActivityMonitor-release-unsigned.apk.sha256
+
+      - name: Upload build payload
         uses: actions/upload-artifact@v4
         with:
-          name: ActivityMonitor-release
-          path: |
-            ${{ env.APK }}
-            ${{ env.APK }}.sha256
+          name: ActivityMonitor-build-payload
+          path: out/*
           if-no-files-found: error
