@@ -47,6 +47,12 @@ class RecordingAdapter(
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
                     )
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        context,
+                        "לא נמצאה אפליקציה מתאימה להפעלת הווידאו",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
             delete.setOnClickListener {
