@@ -25,6 +25,16 @@
             android:exported="false"
             android:label="ניטור המכשיר – תיעוד מסך" />
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.example.activitymonitor.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/screen_media" />
+        </provider>
+
         <service
             android:name=".monitoring.MonitorAccessibilityService"
             android:exported="true"
