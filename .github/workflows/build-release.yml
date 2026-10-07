@@ -24,13 +24,14 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Install compatible Gradle
+      - name: Install Gradle 8.13
         run: |
-          curl -fsSL https://services.gradle.org/distributions/gradle-9.5-bin.zip -o /tmp/gradle.zip
-          rm -rf "$HOME/gradle-9.5"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.13-bin.zip -o /tmp/gradle.zip
+          rm -rf "$HOME/gradle-8.13"
           unzip -q /tmp/gradle.zip -d "$HOME"
-          echo "$HOME/gradle-9.5/bin" >> "$GITHUB_PATH"
-          "$HOME/gradle-9.5/bin/gradle" --version
+          chmod +x "$HOME/gradle-8.13/bin/gradle"
+          echo "$HOME/gradle-8.13/bin" >> "$GITHUB_PATH"
+          "$HOME/gradle-8.13/bin/gradle" --version
 
       - name: Build release
         run: gradle --no-daemon --stacktrace assembleRelease
