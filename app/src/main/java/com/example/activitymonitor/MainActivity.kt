@@ -660,15 +660,52 @@ class MainActivity : AppCompatActivity() {
     private fun showRecordings() {
         inflateScreen(R.layout.screen_recordings, "הקלטות")
         val root = File(getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "ActivityMonitor")
-        val files = root.listFiles { file -> file.isFile && file.extension.equals("mp4", ignoreCase = true) }
-            ?.sortedByDescending { it.lastModified() }
-            ?: emptyList()
-        findViewById<RecyclerView>(R.id.recordingsRecycler).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = RecordingAdapter(files)
+        fun filesNow(): List<File> =
+            root.listFiles { file -> file.isFile && file.extension.equals("mp4", ignoreCase = true) }
+                ?.sortedByDescending { it.lastModified() }
+                ?: emptyList()
+
+        fun updateList() {
+            val files = filesNow()
+            val totalBytes = files.sumOf { it.length() }
+            val sizeText = when {
+                totalBytes < 1024L * 1024L -> "${totalBytes / 1024L} KB"
+                else -> String.format(java.util.Locale.US, "%.1f MB", totalBytes / 1024f / 1024f)
+            }
+            findViewById<TextView>(R.id.recordingsSummary).text =
+                when (files.size) {
+                    0 -> "אין הקלטות"
+                    1 -> "הקלטה אחת • $sizeText"
+                    else -> "${files.size} הקלטות • $sizeText"
+                }
+            findViewById<TextView>(R.id.recordingsEmpty).visibility =
+                if (files.isEmpty()) View.VISIBLE else View.GONE
+            findViewById<RecyclerView>(R.id.recordingsRecycler).adapter =
+                RecordingAdapter(files) { updateList() }
         }
-        findViewById<TextView>(R.id.recordingsEmpty).visibility =
-            if (files.isEmpty()) View.VISIBLE else View.GONE
+
+        findViewById<RecyclerView>(R.id.recordingsRecycler).layoutManager =
+            LinearLayoutManager(this)
+
+        findViewById<Button>(R.id.deleteAllRecordings).apply {
+            isEnabled = filesNow().isNotEmpty()
+            setOnClickListener {
+                val count = filesNow().size
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("מחיקת כל ההקלטות")
+                    .setMessage("למחוק $count הקלטות? לא ניתן לבטל פעולה זו.")
+                    .setNegativeButton("ביטול", null)
+                    .setPositiveButton("מחק הכול") { _, _ ->
+                        filesNow().forEach { it.delete() }
+                        updateList()
+                        isEnabled = false
+                        Toast.makeText(this@MainActivity, "ההקלטות נמחקו", Toast.LENGTH_SHORT).show()
+                    }
+                    .show()
+            }
+        }
+
+        updateList()
     }
 
     private fun updateBatteryScreenIfVisible(samples: List<BatterySampleEntity>) {
