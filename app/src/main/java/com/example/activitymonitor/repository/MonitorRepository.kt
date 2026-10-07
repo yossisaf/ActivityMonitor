@@ -17,6 +17,7 @@ class MonitorRepository(context: Context) {
 
     fun observeRecentEvents(limit: Int = 150): Flow<List<ActivityEventEntity>> = events.observeRecent(limit)
     fun observeBattery(limit: Int = 60): Flow<List<BatterySampleEntity>> = battery.observeRecent(limit)
+    suspend fun recentSessions(limit: Int = 30): List<ApplicationSessionEntity> = withContext(Dispatchers.IO) { sessions.recent(limit) }
 
     suspend fun event(id: Long) = withContext(Dispatchers.IO) { events.findById(id) }
     suspend fun packageEvents(packageName: String, start: Long, end: Long, limit: Int = 1500) = withContext(Dispatchers.IO) { events.byPackage(packageName, start, end, limit) }
