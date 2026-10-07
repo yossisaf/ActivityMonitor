@@ -3,71 +3,203 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="10dp">
 
     <LinearLayout
-        android:id="@+id/permissionCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:background="@drawable/bg_card"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <View
-            android:id="@+id/permissionDot"
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:background="@drawable/bg_permission_dot" />
+        android:background="@drawable/bg_hero"
+        android:padding="16dp"
+        android:orientation="vertical">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:orientation="vertical">
-            <TextView
-                android:id="@+id/permissionBanner"
-                android:layout_width="match_parent"
+            android:gravity="center_vertical">
+
+            <View
+                android:id="@+id/permissionDot"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:background="@drawable/bg_permission_dot" />
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary" />
-            <TextView
-                android:id="@+id/permissionHint"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/dashboardStatusTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="בודק את מצב הניטור…"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white" />
+
+                <TextView
+                    android:id="@+id/permissionBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:textColor="#E9EEFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/dashboardPermissions"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:minWidth="0dp"
+                android:text="הרשאות"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:textColor="@color/primary"
+                android:background="@drawable/bg_metric" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/dashboardPermissions"
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/permissionHint"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:text="כדי לקבל תמונה מלאה, הפעל את ההרשאות החסרות."
+            android:textColor="#DCE5FF"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/dashboardSearch"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:layout_marginTop="12dp"
             android:minWidth="0dp"
-            android:text="לתיקון" />
+            android:text="חיפוש מהיר בהיסטוריה"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:background="@drawable/bg_action" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="76dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_metric"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="פתיחות היום"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <TextView
+                android:id="@+id/dashboardOpenings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="—"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="76dp"
+            android:layout_weight="1"
+            android:layout_marginStart="5dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_metric"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="פעולות היום"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <TextView
+                android:id="@+id/dashboardEvents"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="—"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="76dp"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_metric"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="שימוש היום"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <TextView
+                android:id="@+id/dashboardUsage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="—"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
         android:gravity="center_vertical">
-        <TextView
+
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="פתיחות אחרונות"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary" />
-        <TextView
-            android:id="@+id/recentCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="נפתח לאחרונה"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/recentCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="היסטוריה אחרונה"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+        </LinearLayout>
     </LinearLayout>
 
     <TextView
@@ -75,10 +207,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="30dp"
-        android:paddingBottom="16dp"
+        android:paddingBottom="20dp"
         android:gravity="center"
-        android:text="עדיין לא נקלטה פתיחה של אפליקציה.\nלאחר הפעלת שירות הניטור, הפתיחות האחרונות יופיעו כאן."
+        android:text="אין עדיין פתיחות להצגה.
+לאחר שהניטור יאסוף מידע, האפליקציות האחרונות יופיעו כאן."
         android:textColor="@color/text_secondary"
+        android:textSize="14sp"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -86,7 +220,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 </LinearLayout>
