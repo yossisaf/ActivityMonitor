@@ -24,7 +24,7 @@ class MonitorRepository(context: Context) {
     suspend fun packageEvents(packageName: String, start: Long, end: Long, limit: Int = 1500) = withContext(Dispatchers.IO) { events.byPackage(packageName, start, end, limit) }
     suspend fun latestEvent(packageName: String) = withContext(Dispatchers.IO) { events.latestForPackage(packageName) }
     suspend fun packageSessionCounts(start: Long, end: Long) = withContext(Dispatchers.IO) { sessions.countsByPackage(start, end) }
-    suspend fun packageEventSummaries(start: Long, end: Long) = withContext(Dispatchers.IO) { events.summariesByPackage(start, end) }
+    suspend fun eventsBetween(start: Long, end: Long, limit: Int = 5000) = withContext(Dispatchers.IO) { events.between(start, end, limit) }
     suspend fun search(query: String, start: Long, end: Long, packageName: String? = null, eventType: Int? = null, limit: Int = 500) = withContext(Dispatchers.IO) { events.search(query.trim(), start, end, packageName, eventType, limit) }
     suspend fun insertEvent(event: ActivityEventEntity) = withContext(Dispatchers.IO) { events.insert(event) }
     suspend fun insertBattery(sample: BatterySampleEntity) = withContext(Dispatchers.IO) { battery.insert(sample) }
