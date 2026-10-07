@@ -29,6 +29,7 @@ import com.example.activitymonitor.db.BatterySampleEntity
 import com.example.activitymonitor.repository.AppIconCache
 import com.example.activitymonitor.repository.CryptoManager
 import com.example.activitymonitor.repository.MonitorRepository
+import com.example.activitymonitor.repository.PasswordManager
 import com.example.activitymonitor.repository.UsageStatsRepository
 import com.example.activitymonitor.ui.AppAdapter
 import com.example.activitymonitor.ui.AppRow
@@ -37,6 +38,7 @@ import com.example.activitymonitor.ui.EventAdapter
 import com.example.activitymonitor.ui.EventTranslator
 import com.example.activitymonitor.ui.Formatters
 import com.example.activitymonitor.ui.MainViewModel
+import com.example.activitymonitor.ui.RecentAppAdapter
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -50,6 +52,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var eventAdapter: EventAdapter
     private lateinit var searchAdapter: EventAdapter
     private lateinit var appAdapter: AppAdapter
+    private lateinit var recentAppAdapter: RecentAppAdapter
+    private lateinit var passwordManager: PasswordManager
+    private var mainUiInitialized = false
+    private var permissionPromptShown = false
     private val navStack = ArrayDeque<String>()
     private var searchOffset = 0
     private var searchCustomStart: Long? = null
@@ -63,26 +69,100 @@ class MainActivity : AppCompatActivity() {
         repository = (application as MonitorApplication).repository
         usageStats = UsageStatsRepository(this)
         iconCache = AppIconCache(this)
+        passwordManager = PasswordManager(this)
         viewModel = ViewModelProvider(this, MainViewModel.Factory(repository))[MainViewModel::class.java]
         rootContent = findViewById(R.id.screenContainer)
         title = findViewById(R.id.toolbarTitle)
-        setupNav()
-        setupAdapters()
-        setupCollectors()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (navStack.size > 1) { navStack.removeLast(); render(navStack.last()) } else finish()
             }
         })
-        render("dashboard")
+        showPasswordGate()
     }
 
     override fun onResume() {
         super.onResume()
+        if (mainUiInitialized && navStack.lastOrNull() == "dashboard") refreshDashboard()
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
             "dashboard" -> { loadDashboardStats(); updatePermissionBanner() }
         }
+    }
+
+    private fun showPasswordGate() {
+        mainUiInitialized = false
+        rootContent.removeAllViews()
+        bottomNavVisibility(false)
+        title.text = "ניטור המכשיר"
+        layoutInflater.inflate(R.layout.screen_lock, rootContent, true)
+
+        val titleView = findViewById<TextView>(R.id.lockTitle)
+        val subtitle = findViewById<TextView>(R.id.lockSubtitle)
+        val input = findViewById<EditText>(R.id.passwordInput)
+        val confirm = findViewById<EditText>(R.id.passwordConfirm)
+        val error = findViewById<TextView>(R.id.passwordError)
+        val action = findViewById<Button>(R.id.passwordAction)
+
+        if (!passwordManager.hasPassword()) {
+            titleView.text = "הגדרת סיסמה"
+            subtitle.text = "בחר סיסמה כדי להגן על נתוני הניטור."
+            confirm.visibility = View.VISIBLE
+            action.text = "שמירת סיסמה"
+            action.setOnClickListener {
+                val first = input.text.toString()
+                val second = confirm.text.toString()
+                when {
+                    first.length < 4 -> showPasswordError(error, "הסיסמה חייבת להכיל לפחות 4 תווים.")
+                    first != second -> showPasswordError(error, "הסיסמאות אינן זהות.")
+                    else -> {
+                        passwordManager.setPassword(first)
+                        initMainUi()
+                    }
+                }
+            }
+        } else {
+            titleView.text = "כניסה"
+            subtitle.text = "הזן את הסיסמה כדי להמשיך."
+            confirm.visibility = View.GONE
+            action.text = "כניסה"
+            action.setOnClickListener {
+                if (passwordManager.verify(input.text.toString())) initMainUi()
+                else showPasswordError(error, "הסיסמה שגויה.")
+            }
+        }
+    }
+
+    private fun showPasswordError(error: TextView, message: String) {
+        error.text = message
+        error.visibility = View.VISIBLE
+    }
+
+    private fun bottomNavVisibility(visible: Boolean) {
+        findViewById<LinearLayout>(R.id.bottomNav).visibility = if (visible) View.VISIBLE else View.GONE
+    }
+
+    private fun initMainUi() {
+        mainUiInitialized = true
+        bottomNavVisibility(true)
+        setupNav()
+        setupAdapters()
+        setupCollectors()
+        render("dashboard")
+        maybePromptUsageAccess()
+    }
+
+    private fun maybePromptUsageAccess() {
+        if (permissionPromptShown || usageStats.hasUsageAccess()) return
+        permissionPromptShown = true
+        AlertDialog.Builder(this)
+            .setTitle("נדרשת גישה לנתוני שימוש")
+            .setMessage("כדי שהאפליקציה תוכל להציג זמן שימוש ופתיחות בצורה מלאה, יש להפעיל גישה לנתוני שימוש בהגדרות Android.")
+            .setNegativeButton("אחר כך", null)
+            .setPositiveButton("פתיחת ההגדרה") { _, _ ->
+                runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+            }
+            .show()
     }
 
     private fun setupNav() {
@@ -93,6 +173,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupAdapters() {
         eventAdapter = EventAdapter(iconCache) { openEvent(it) }
         searchAdapter = EventAdapter(iconCache) { openEvent(it) }
+        recentAppAdapter = RecentAppAdapter(iconCache) { session -> openAppTimeline(session.packageName, session.appName) }
         appAdapter = AppAdapter(iconCache,
             onToggle = { pkg, enabled -> lifecycleScope.launch { repository.upsertTracking(pkg, enabled); getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("track_$pkg", enabled).apply() } },
             onClick = { row -> openAppTimeline(row.packageName, row.name) }
@@ -128,25 +209,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDashboard() {
-        inflateScreen(R.layout.screen_dashboard, "פעילות אחרונה")
-        findViewById<RecyclerView>(R.id.dashboardRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = eventAdapter; setHasFixedSize(true) }
+        inflateScreen(R.layout.screen_dashboard, "ראשי")
+        findViewById<RecyclerView>(R.id.dashboardRecycler).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = recentAppAdapter
+            setHasFixedSize(true)
+        }
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
-        loadDashboardStats(); updatePermissionBanner()
+        refreshDashboard()
+        updatePermissionBanner()
     }
 
-    private fun loadDashboardStats() {
+    private fun refreshDashboard() {
         lifecycleScope.launch {
-            val start = Formatters.dayStart(); val end = System.currentTimeMillis() + 1
-            val usage = if (usageStats.hasUsageAccess()) usageStats.queryAggregated(start, end).values.sum() else repository.totalDuration(start, end)
-            val openings = repository.sessionCount(start, end)
-            val events = repository.eventCount(start, end)
-            val top = repository.topAppsByEvents(start, end, 1).firstOrNull()?.appName
-            if (navStack.lastOrNull() == "dashboard") {
-                findViewById<TextView>(R.id.todayDuration).text = "זמן שימוש מצטבר היום\n${Formatters.duration(usage)}"
-                findViewById<TextView>(R.id.todayOpenings).text = "פתיחות אפליקציות\n$openings"
-                findViewById<TextView>(R.id.todayEvents).text = "אירועים שנקלטו\n$events"
-                findViewById<TextView>(R.id.todayTopApp).text = "האפליקציה הבולטת\n${top ?: "אין נתונים עדיין"}"
-            }
+            val sessions = repository.recentSessions(40)
+            if (navStack.lastOrNull() != "dashboard") return@launch
+            recentAppAdapter.submitList(sessions)
+            findViewById<TextView>(R.id.recentCount).text =
+                if (sessions.isEmpty()) "" else "\${sessions.size} פתיחות"
+            findViewById<TextView>(R.id.recentEmpty).visibility =
+                if (sessions.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
