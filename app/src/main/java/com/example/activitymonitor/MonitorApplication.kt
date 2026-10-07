@@ -31,13 +31,28 @@ class MonitorApplication : Application() {
                     if (level >= 0) {
                         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
                         val tempRaw = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
-                        repository.insertBattery(BatterySampleEntity(
-                            timestamp = System.currentTimeMillis(),
-                            batteryLevel = ((level * 100f) / scale).toInt().coerceIn(0, 100),
-                            charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
-                            temperature = if (tempRaw == Int.MIN_VALUE) null else tempRaw / 10f,
-                            status = status
-                        ))
+                        val percent = ((level * 100f) / scale).toInt().coerceIn(0, 100)
+                        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+                        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                        val now = System.currentTimeMillis()
+                        val lastAt = prefs.getLong("last_battery_sample", 0L)
+                        val lastLevel = prefs.getInt("last_battery_level", -1)
+                        val lastStatus = prefs.getInt("last_battery_status", Int.MIN_VALUE)
+                        val significantChange = kotlin.math.abs(percent - lastLevel) >= 2 || status != lastStatus
+                        if (now - lastAt >= 15L * 60L * 1000L || significantChange) {
+                            repository.insertBattery(BatterySampleEntity(
+                                timestamp = now,
+                                batteryLevel = percent,
+                                charging = charging,
+                                temperature = if (tempRaw == Int.MIN_VALUE) null else tempRaw / 10f,
+                                status = status
+                            ))
+                            prefs.edit()
+                                .putLong("last_battery_sample", now)
+                                .putInt("last_battery_level", percent)
+                                .putInt("last_battery_status", status)
+                                .apply()
+                        }
                     }
                 } finally { pending.finish() }
             }
