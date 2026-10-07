@@ -7,151 +7,215 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="18dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="שליטה וניטור"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="כאן מנהלים הרשאות, פרטיות ושמירת נתונים."
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:padding="14dp"
             android:background="@drawable/bg_card"
             android:orientation="vertical">
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="אבטחת האפליקציה"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary" />
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="הנתונים מוגנים בסיסמה מקומית."
-                android:textColor="@color/text_secondary" />
-            <Button
-                android:id="@+id/changePassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="שינוי סיסמה" />
-        </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="14dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical">
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="שירות נגישות"
-                android:textSize="18sp"
+                android:text="הרשאות — לפני הכול"
+                android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
+
             <TextView
                 android:id="@+id/accessibilityStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" 
-                android:textColor="@color/success" />
+                android:layout_marginTop="10dp"
+                android:textColor="@color/success"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/accessibilityDetails"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/text_secondary" />
+                android:layout_marginTop="3dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
             <Button
                 android:id="@+id/openAccessibility"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="פתיחת הגדרות נגישות" />
-        </LinearLayout>
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="ניהול שירות נגישות"
+                android:textAllCaps="false" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="14dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_card"
-            android:orientation="vertical">
-            <TextView
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="גישה לנתוני שימוש"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary" />
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="@color/divider" />
+
             <TextView
                 android:id="@+id/usageStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/success" />
+                android:layout_marginTop="10dp"
+                android:textColor="@color/success"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/usageDetails"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/text_secondary" />
+                android:layout_marginTop="3dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
             <Button
                 android:id="@+id/openUsage"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="פתיחת הגדרות נתוני שימוש" />
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="ניהול גישה לנתוני שימוש"
+                android:textAllCaps="false" />
         </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="אפשרויות איסוף"
+            android:layout_marginTop="18dp"
+            android:text="פרטיות ואיסוף"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary" />
-        <Switch
-            android:id="@+id/captureTextSwitch"
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="שמירת טקסט שנחשף דרך Accessibility" />
-        <Switch
-            android:id="@+id/captureSourceSwitch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="שמירת מידע בסיסי על מקור הרכיב" />
-        <Switch
-            android:id="@+id/encryptTechnicalSwitch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="הצפנת מידע טכני של מקור הרכיב" />
+            android:layout_marginTop="7dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <Switch
+                android:id="@+id/captureTextSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="שמירת טקסט שנחשף דרך Accessibility" />
+
+            <Switch
+                android:id="@+id/captureSourceSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="שמירת מידע בסיסי על מקור הרכיב" />
+
+            <Switch
+                android:id="@+id/encryptTechnicalSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="הצפנת מידע טכני של מקור הרכיב" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="18dp"
             android:text="שמירת היסטוריה"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary" />
-        <EditText
-            android:id="@+id/retentionDays"
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="מספר ימים"
-            android:inputType="number" />
-        <Button
-            android:id="@+id/saveRetention"
+            android:layout_marginTop="7dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="לכמה זמן לשמור נתונים?"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <EditText
+                android:id="@+id/retentionDays"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp"
+                android:hint="מספר ימים (ברירת מחדל: 30)"
+                android:inputType="number" />
+
+            <Button
+                android:id="@+id/saveRetention"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="שמירת הגדרה"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/deleteHistory"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:text="מחיקת כל ההיסטוריה"
+                android:textAllCaps="false"
+                android:textColor="@color/error" />
+        </LinearLayout>
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="שמירת הגדרה" />
-        <Button
-            android:id="@+id/deleteHistory"
+            android:layout_marginTop="18dp"
+            android:text="אבטחת הגישה לאפליקציה"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="מחיקת כל ההיסטוריה" />
+            android:layout_marginTop="7dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="הנתונים המקומיים מוגנים באמצעות סיסמה."
+                android:textColor="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/changePassword"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="שינוי סיסמה"
+                android:textAllCaps="false" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>
