@@ -10,6 +10,7 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
+import android.text.InputType
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -381,6 +382,7 @@ class MainActivity : AppCompatActivity() {
         updatePermissionScreen()
         findViewById<Button>(R.id.openAccessibility).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
         findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
+        findViewById<Button>(R.id.changePassword).setOnClickListener { showChangePasswordDialog() }
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         findViewById<Switch>(R.id.captureTextSwitch).apply { isChecked = prefs.getBoolean("capture_text", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_text", c).apply() } }
         findViewById<Switch>(R.id.captureSourceSwitch).apply { isChecked = prefs.getBoolean("capture_source", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_source", c).apply() } }
@@ -398,6 +400,48 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("מחק") { _, _ -> lifecycleScope.launch { repository.deleteAllHistory(); Toast.makeText(this@MainActivity, "ההיסטוריה נמחקה", Toast.LENGTH_SHORT).show() } }
                 .show()
         }
+    }
+
+    private fun showChangePasswordDialog() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 8, 24, 0)
+        }
+        val oldPassword = EditText(this).apply {
+            hint = "סיסמה נוכחית"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val newPassword = EditText(this).apply {
+            hint = "סיסמה חדשה"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val confirm = EditText(this).apply {
+            hint = "אימות סיסמה חדשה"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        box.addView(oldPassword)
+        box.addView(newPassword)
+        box.addView(confirm)
+
+        AlertDialog.Builder(this)
+            .setTitle("שינוי סיסמה")
+            .setView(box)
+            .setNegativeButton("ביטול", null)
+            .setPositiveButton("שמירה") { _, _ ->
+                when {
+                    !passwordManager.verify(oldPassword.text.toString()) ->
+                        Toast.makeText(this, "הסיסמה הנוכחית שגויה", Toast.LENGTH_SHORT).show()
+                    newPassword.text.length < 4 ->
+                        Toast.makeText(this, "הסיסמה החדשה קצרה מדי", Toast.LENGTH_SHORT).show()
+                    newPassword.text.toString() != confirm.text.toString() ->
+                        Toast.makeText(this, "הסיסמאות החדשות אינן זהות", Toast.LENGTH_SHORT).show()
+                    else -> {
+                        passwordManager.setPassword(newPassword.text.toString())
+                        Toast.makeText(this, "הסיסמה שונתה", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .show()
     }
 
     private fun updatePermissionScreen() {
