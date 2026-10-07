@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
 import android.text.InputType
+import android.view.inputmethod.EditorInfo
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -225,7 +226,17 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.events.collect { eventAdapter.submitList(it) } }
-                launch { viewModel.searchResults.collect { searchAdapter.submitList(it); rootContent.findViewById<View>(R.id.searchEmpty)?.visibility = if (it.isEmpty()) View.VISIBLE else View.GONE } }
+                launch {
+                    viewModel.searchResults.collect {
+                        searchAdapter.submitList(it)
+                        rootContent.findViewById<View>(R.id.searchEmpty)?.visibility = if (it.isEmpty()) View.VISIBLE else View.GONE
+                        rootContent.findViewById<TextView>(R.id.searchResultCount)?.text = when (it.size) {
+                            0 -> "אין תוצאות"
+                            1 -> "תוצאה אחת"
+                            else -> "${it.size} תוצאות"
+                        }
+                    }
+                }
                 launch { viewModel.battery.collect { updateBatteryScreenIfVisible(it) } }
             }
         }
@@ -424,8 +435,21 @@ class MainActivity : AppCompatActivity() {
     private fun showSearch() {
         inflateScreen(R.layout.screen_search, "חיפוש")
         findViewById<RecyclerView>(R.id.searchRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = searchAdapter }
-        val input = findViewById<EditText>(R.id.searchInput); val range = findViewById<TextView>(R.id.searchRange)
+        val input = findViewById<EditText>(R.id.searchInput)
+        val range = findViewById<TextView>(R.id.searchRange)
+        val resultCount = findViewById<TextView>(R.id.searchResultCount)
         searchOffset = 0; searchCustomStart = null; searchCustomEnd = null; searchPackageFilter = null; searchEventTypeFilter = null
+        input.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                runSearch(input, range)
+                true
+            } else false
+        }
+        findViewById<Button>(R.id.searchClear).setOnClickListener {
+            input.setText("")
+            input.requestFocus()
+            runSearch(input, range)
+        }
         findViewById<Button>(R.id.searchToday).setOnClickListener { clearCustomRange(); searchOffset = 0; runSearch(input, range) }
         findViewById<Button>(R.id.searchYesterday).setOnClickListener { clearCustomRange(); searchOffset = -1; runSearch(input, range) }
         findViewById<Button>(R.id.searchWeek).setOnClickListener { clearCustomRange(); searchOffset = -6; runSearch(input, range) }
