@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:gravity="center_vertical" android:orientation="horizontal">
+            <ImageView android:id="@+id/detailIcon" android:layout_width="56dp" android:layout_height="56dp" android:contentDescription="אייקון האפליקציה" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="12dp" android:orientation="vertical">
+                <TextView android:id="@+id/detailApp" android:layout_width="match_parent" android:layout_height="wrap_content" android:textStyle="bold" android:textSize="19sp" android:textColor="@color/text_primary" />
+                <TextView android:id="@+id/detailWhen" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+                <TextView android:id="@+id/detailType" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_primary" />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="פרטים ידידותיים" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="טקסט הרכיב" android:textStyle="bold" android:textColor="@color/text_primary" />
+        <TextView android:id="@+id/detailText" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="תיאור הרכיב" android:textStyle="bold" android:textColor="@color/text_primary" />
+        <TextView android:id="@+id/detailContentDescription" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+        <Switch android:id="@+id/technicalToggle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="הצגת פרטים טכניים" />
+        <LinearLayout android:id="@+id/technicalContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:orientation="vertical" android:background="@drawable/bg_card">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="View ID" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/detailViewId" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Class Name" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/detailClass" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Activity / Window" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/detailActivity" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Package" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/detailPackage" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Session" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/detailSession" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text_secondary" />
+            <TextView android:id="@+id/detailTechnical" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="@color/text_secondary" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

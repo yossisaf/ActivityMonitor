@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp">
+    <EditText android:id="@+id/searchInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="אפליקציה, Package, טקסט, View ID, Activity או פעולה" android:singleLine="true" android:inputType="text" />
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/searchToday" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="היום" />
+            <Button android:id="@+id/searchYesterday" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="אתמול" />
+            <Button android:id="@+id/searchWeek" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="שבוע" />
+            <Button android:id="@+id/searchMonth" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="חודש" />
+        </LinearLayout>
+    </HorizontalScrollView>
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/searchFrom" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="מתאריך" />
+            <Button android:id="@+id/searchTo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="עד תאריך" />
+            <Button android:id="@+id/searchAppFilter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="אפליקציה: הכול" />
+            <Button android:id="@+id/searchTypeFilter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="פעולה: הכול" />
+        </LinearLayout>
+    </HorizontalScrollView>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="טווח נבחר:" android:textColor="@color/text_secondary" />
+        <TextView android:id="@+id/searchRange" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:textColor="@color/text_primary" />
+        <Button android:id="@+id/searchGo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="חפש" />
+    </LinearLayout>
+    <TextView android:id="@+id/searchEmpty" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="אין תוצאות להצגה" android:textColor="@color/text_secondary" android:visibility="gone" />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/searchRecycler" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="6dp" />
+</LinearLayout>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp">
+    <TextView android:id="@+id/permissionBanner" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_card" android:text="בודק הרשאות…" android:textColor="@color/text_primary" />
+    <TextView android:id="@+id/todayDuration" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+    <TextView android:id="@+id/todayOpenings" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+    <TextView android:id="@+id/todayEvents" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+    <TextView android:id="@+id/todayTopApp" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/bg_card" android:textColor="@color/text_primary" />
+    <Button android:id="@+id/dashboardPermissions" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="בדיקת הרשאות ואפשרויות ניטור" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="ציר זמן פעילות אחרונה" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/dashboardRecycler" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="8dp" />
+</LinearLayout>

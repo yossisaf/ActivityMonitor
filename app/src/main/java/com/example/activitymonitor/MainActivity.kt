@@ -1,0 +1,364 @@
+package com.example.activitymonitor
+
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.provider.Settings
+import android.view.View
+import android.view.accessibility.AccessibilityManager
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.Switch
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.activitymonitor.db.ActivityEventEntity
+import com.example.activitymonitor.db.BatterySampleEntity
+import com.example.activitymonitor.repository.AppIconCache
+import com.example.activitymonitor.repository.CryptoManager
+import com.example.activitymonitor.repository.MonitorRepository
+import com.example.activitymonitor.repository.UsageStatsRepository
+import com.example.activitymonitor.ui.AppAdapter
+import com.example.activitymonitor.ui.AppRow
+import com.example.activitymonitor.ui.BarChartView
+import com.example.activitymonitor.ui.EventAdapter
+import com.example.activitymonitor.ui.EventTranslator
+import com.example.activitymonitor.ui.Formatters
+import com.example.activitymonitor.ui.MainViewModel
+import kotlinx.coroutines.launch
+import java.util.Calendar
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var viewModel: MainViewModel
+    private lateinit var repository: MonitorRepository
+    private lateinit var usageStats: UsageStatsRepository
+    private lateinit var iconCache: AppIconCache
+    private lateinit var rootContent: LinearLayout
+    private lateinit var title: TextView
+    private lateinit var eventAdapter: EventAdapter
+    private lateinit var searchAdapter: EventAdapter
+    private lateinit var appAdapter: AppAdapter
+    private val navStack = ArrayDeque<String>()
+    private var searchOffset = 0
+    private var searchCustomStart: Long? = null
+    private var searchCustomEnd: Long? = null
+    private var searchPackageFilter: String? = null
+    private var searchEventTypeFilter: Int? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        repository = (application as MonitorApplication).repository
+        usageStats = UsageStatsRepository(this)
+        iconCache = AppIconCache(this)
+        viewModel = ViewModelProvider(this, MainViewModel.Factory(repository))[MainViewModel::class.java]
+        rootContent = findViewById(R.id.screenContainer)
+        title = findViewById(R.id.toolbarTitle)
+        setupNav()
+        setupAdapters()
+        setupCollectors()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (navStack.size > 1) { navStack.removeLast(); render(navStack.last()) } else finish()
+            }
+        })
+        render("dashboard")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        when (navStack.lastOrNull()) {
+            "permissions" -> updatePermissionScreen()
+            "dashboard" -> { loadDashboardStats(); updatePermissionBanner() }
+        }
+    }
+
+    private fun setupNav() {
+        mapOf(R.id.navDashboard to "dashboard", R.id.navApps to "apps", R.id.navStats to "stats", R.id.navSearch to "search", R.id.navPermissions to "permissions")
+            .forEach { (id, key) -> findViewById<Button>(id).setOnClickListener { render(key) } }
+    }
+
+    private fun setupAdapters() {
+        eventAdapter = EventAdapter(iconCache) { openEvent(it) }
+        searchAdapter = EventAdapter(iconCache) { openEvent(it) }
+        appAdapter = AppAdapter(iconCache,
+            onToggle = { pkg, enabled -> lifecycleScope.launch { repository.upsertTracking(pkg, enabled); getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("track_$pkg", enabled).apply() } },
+            onClick = { row -> openAppTimeline(row.packageName, row.name) }
+        )
+    }
+
+    private fun setupCollectors() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { viewModel.events.collect { eventAdapter.submitList(it) } }
+                launch { viewModel.searchResults.collect { searchAdapter.submitList(it); rootContent.findViewById<View>(R.id.searchEmpty)?.visibility = if (it.isEmpty()) View.VISIBLE else View.GONE } }
+                launch { viewModel.battery.collect { updateBatteryScreenIfVisible(it) } }
+            }
+        }
+    }
+
+    private fun render(key: String) {
+        if (navStack.lastOrNull() != key) navStack.addLast(key)
+        when (key) {
+            "dashboard" -> showDashboard()
+            "apps" -> showApps()
+            "stats" -> showStats()
+            "search" -> showSearch()
+            "permissions" -> showPermissions()
+            else -> showDashboard()
+        }
+    }
+
+    private fun inflateScreen(layout: Int, titleText: String) {
+        rootContent.removeAllViews()
+        layoutInflater.inflate(layout, rootContent, true)
+        title.text = titleText
+    }
+
+    private fun showDashboard() {
+        inflateScreen(R.layout.screen_dashboard, "פעילות אחרונה")
+        findViewById<RecyclerView>(R.id.dashboardRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = eventAdapter; setHasFixedSize(true) }
+        findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
+        loadDashboardStats(); updatePermissionBanner()
+    }
+
+    private fun loadDashboardStats() {
+        lifecycleScope.launch {
+            val start = Formatters.dayStart(); val end = System.currentTimeMillis() + 1
+            val usage = if (usageStats.hasUsageAccess()) usageStats.queryAggregated(start, end).values.sum() else repository.totalDuration(start, end)
+            val openings = repository.sessionCount(start, end)
+            val events = repository.eventCount(start, end)
+            val top = repository.topAppsByEvents(start, end, 1).firstOrNull()?.appName
+            if (navStack.lastOrNull() == "dashboard") {
+                findViewById<TextView>(R.id.todayDuration).text = "זמן שימוש מצטבר היום\n${Formatters.duration(usage)}"
+                findViewById<TextView>(R.id.todayOpenings).text = "פתיחות אפליקציות\n$openings"
+                findViewById<TextView>(R.id.todayEvents).text = "אירועים שנקלטו\n$events"
+                findViewById<TextView>(R.id.todayTopApp).text = "האפליקציה הבולטת\n${top ?: "אין נתונים עדיין"}"
+            }
+        }
+    }
+
+    private fun updatePermissionBanner() {
+        if (!rootContent.findViewById<View>(R.id.permissionBanner).isAttachedToWindow) return
+        val a = accessibilityEnabled(); val u = usageStats.hasUsageAccess()
+        findViewById<TextView>(R.id.permissionBanner).text = when {
+            a && u -> "הניטור פעיל. המערכת מאפשרת איסוף אירועי ממשק ונתוני שימוש."
+            a -> "שירות הנגישות פעיל. גישה לנתוני שימוש אינה פעילה."
+            u -> "גישה לנתוני שימוש פעילה. שירות הנגישות אינו פעיל."
+            else -> "יש לבדוק ולהפעיל את ההרשאות הנדרשות לקבלת מידע רחב יותר."
+        }
+    }
+
+    private fun showApps() {
+        inflateScreen(R.layout.screen_apps, "אפליקציות")
+        findViewById<RecyclerView>(R.id.appsRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = appAdapter }
+        lifecycleScope.launch { loadApps() }
+    }
+
+    private suspend fun loadApps() {
+        val pm = packageManager
+        val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+            .map { it.activityInfo.applicationInfo }.distinctBy { it.packageName }.filter { it.packageName != packageName }.take(150)
+        val now = System.currentTimeMillis() + 1; val today = Formatters.dayStart()
+        val week = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_WEEK, firstDayOfWeek); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayUsage = usageStats.queryAggregated(today, now); val weekUsage = usageStats.queryAggregated(week, now)
+        val settings = repository.trackingSettings().associateBy { it.packageName }
+        val rows = apps.map { info ->
+            val pkg = info.packageName
+            val name = pm.getApplicationLabel(info).toString().ifBlank { pkg }
+            AppRow(pkg, name, todayUsage[pkg] ?: 0L, weekUsage[pkg] ?: 0L,
+                repository.countSessionsForPackage(pkg, week, now), repository.countEventsForPackage(pkg, week, now),
+                repository.latestEvent(pkg)?.eventDescription, settings[pkg]?.enabled ?: true)
+        }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
+        if (navStack.lastOrNull() == "apps") appAdapter.submitList(rows)
+    }
+
+    private fun showStats() {
+        inflateScreen(R.layout.screen_stats, "סטטיסטיקות")
+        findViewById<Button>(R.id.openBattery).setOnClickListener { showBattery() }
+        lifecycleScope.launch { loadStats() }
+    }
+
+    private suspend fun loadStats() {
+        val start = Formatters.dayStart(-6); val end = System.currentTimeMillis() + 1
+        val total = if (usageStats.hasUsageAccess()) usageStats.queryAggregated(start, end).values.sum() else repository.totalDuration(start, end)
+        val openings = repository.sessionCount(start, end); val events = repository.eventCount(start, end)
+        val top = repository.topAppsByEvents(start, end, 5); val counts = repository.eventCounts(start, end)
+        val rangeEvents = repository.search("", start, end, limit = 10000)
+        val hourly = MutableList(24) { 0f }; val days = mutableMapOf<String, Int>()
+        rangeEvents.forEach {
+            val cal = Calendar.getInstance().apply { timeInMillis = it.timestamp }
+            hourly[cal.get(Calendar.HOUR_OF_DAY)]++
+            val d = Formatters.shortDate(it.timestamp); days[d] = (days[d] ?: 0) + 1
+        }
+        val busiestDay = days.maxByOrNull { it.value }?.let { "${it.key} (${it.value} אירועים)" } ?: "אין נתונים"
+        if (navStack.lastOrNull() != "stats") return
+        findViewById<TextView>(R.id.statsSummary).text = "זמן שימוש כולל: ${Formatters.duration(total)}\nפתיחות: $openings\nאירועים: $events\nהאפליקציה הבולטת: ${top.firstOrNull()?.appName ?: "אין נתונים"}\nיום עם הפעילות הרבה ביותר: $busiestDay"
+        findViewById<TextView>(R.id.statsEventTypes).text = counts.take(6).joinToString("\n") { "${EventTranslator.description(it.eventType)} — ${it.count}" }.ifBlank { "אין נתונים עדיין" }
+        findViewById<TextView>(R.id.statsApps).text = top.joinToString("\n") { "${it.appName} — ${it.count} אירועים" }.ifBlank { "אין נתונים עדיין" }
+        findViewById<BarChartView>(R.id.statsChart).apply { values = hourly; labels = List(24) { i -> if (i % 4 == 0) i.toString().padStart(2, '0') else "" } }
+    }
+
+    private fun showBattery() {
+        navStack.addLast("battery")
+        inflateScreen(R.layout.screen_battery, "סוללה")
+        updateBatteryScreenIfVisible(viewModel.battery.value)
+    }
+
+    private fun showSearch() {
+        inflateScreen(R.layout.screen_search, "חיפוש")
+        findViewById<RecyclerView>(R.id.searchRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = searchAdapter }
+        val input = findViewById<EditText>(R.id.searchInput); val range = findViewById<TextView>(R.id.searchRange)
+        searchOffset = 0; searchCustomStart = null; searchCustomEnd = null; searchPackageFilter = null; searchEventTypeFilter = null
+        findViewById<Button>(R.id.searchToday).setOnClickListener { clearCustomRange(); searchOffset = 0; runSearch(input, range) }
+        findViewById<Button>(R.id.searchYesterday).setOnClickListener { clearCustomRange(); searchOffset = -1; runSearch(input, range) }
+        findViewById<Button>(R.id.searchWeek).setOnClickListener { clearCustomRange(); searchOffset = -6; runSearch(input, range) }
+        findViewById<Button>(R.id.searchMonth).setOnClickListener { clearCustomRange(); searchOffset = -29; runSearch(input, range) }
+        findViewById<Button>(R.id.searchFrom).setOnClickListener { pickSearchDate(true, range) }
+        findViewById<Button>(R.id.searchTo).setOnClickListener { pickSearchDate(false, range) }
+        findViewById<Button>(R.id.searchAppFilter).setOnClickListener { chooseSearchApp(input, range) }
+        findViewById<Button>(R.id.searchTypeFilter).setOnClickListener { chooseSearchType(input, range) }
+        findViewById<Button>(R.id.searchGo).setOnClickListener { runSearch(input, range) }
+        runSearch(input, range)
+    }
+
+    private fun clearCustomRange() {
+        searchCustomStart = null; searchCustomEnd = null
+    }
+
+    private fun pickSearchDate(from: Boolean, range: TextView) {
+        val base = Calendar.getInstance().apply { timeInMillis = (if (from) searchCustomStart else searchCustomEnd) ?: System.currentTimeMillis() }
+        android.app.DatePickerDialog(this, { _, y, m, d ->
+            val c = Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); set(Calendar.MILLISECOND, 0) }
+            if (from) searchCustomStart = c.timeInMillis else searchCustomEnd = c.timeInMillis + 24L * 60L * 60L * 1000L
+            searchOffset = 0; range.text = "טווח מותאם"
+        }, base.get(Calendar.YEAR), base.get(Calendar.MONTH), base.get(Calendar.DAY_OF_MONTH)).show()
+    }
+
+    private fun chooseSearchApp(input: EditText, range: TextView) {
+        lifecycleScope.launch {
+            val apps = repository.topAppsByEvents(Formatters.dayStart(-90), System.currentTimeMillis() + 1, 60)
+            val labels = arrayOf("כל האפליקציות") + apps.map { it.appName }.distinct().toTypedArray()
+            AlertDialog.Builder(this@MainActivity).setTitle("סינון לפי אפליקציה").setItems(labels) { _, which ->
+                searchPackageFilter = if (which == 0) null else apps.firstOrNull { it.appName == labels[which] }?.packageName
+                runSearch(input, range)
+            }.show()
+        }
+    }
+
+    private fun chooseSearchType(input: EditText, range: TextView) {
+        val types = listOf(null, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED)
+        val labels = listOf("כל הפעולות", "לחיצה על רכיב", "בחירת רכיב", "שינוי טקסט", "מעבר למסך", "שינוי תוכן המסך", "גלילה")
+        AlertDialog.Builder(this).setTitle("סינון לפי סוג פעולה").setItems(labels.toTypedArray()) { _, which ->
+            searchEventTypeFilter = types[which]; runSearch(input, range)
+        }.show()
+    }
+
+    private fun runSearch(input: EditText, range: TextView) {
+        val now = System.currentTimeMillis() + 1
+        val start = searchCustomStart ?: Formatters.dayStart(searchOffset)
+        val end = searchCustomEnd ?: if (searchOffset == -1) Formatters.dayStart(0) else now
+        range.text = when {
+            searchCustomStart != null || searchCustomEnd != null -> "טווח מותאם"
+            searchOffset == 0 -> "היום"; searchOffset == -1 -> "אתמול"; searchOffset == -6 -> "7 ימים אחרונים"; searchOffset == -29 -> "30 ימים אחרונים"; else -> "טווח"
+        }
+        viewModel.search(input.text.toString(), start, end, searchPackageFilter, searchEventTypeFilter)
+    }
+
+    private fun showPermissions() {
+        inflateScreen(R.layout.screen_permissions, "הרשאות ואפשרויות ניטור")
+        updatePermissionScreen()
+        findViewById<Button>(R.id.openAccessibility).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
+        findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        findViewById<Switch>(R.id.captureTextSwitch).apply { isChecked = prefs.getBoolean("capture_text", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_text", c).apply() } }
+        findViewById<Switch>(R.id.captureSourceSwitch).apply { isChecked = prefs.getBoolean("capture_source", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_source", c).apply() } }
+        findViewById<Switch>(R.id.encryptTechnicalSwitch).apply { isChecked = prefs.getBoolean("encrypt_technical", false); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("encrypt_technical", c).apply() } }
+        val retention = findViewById<EditText>(R.id.retentionDays); retention.setText(prefs.getInt("retention_days", 30).toString())
+        findViewById<Button>(R.id.saveRetention).setOnClickListener {
+            val days = retention.text.toString().toIntOrNull()?.coerceIn(1, 3650) ?: 30
+            prefs.edit().putInt("retention_days", days).apply(); lifecycleScope.launch { repository.cleanup(days) }
+            Toast.makeText(this, "הגדרת השמירה נשמרה", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<Button>(R.id.deleteHistory).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("מחיקת כל ההיסטוריה")
+                .setMessage("כל האירועים, הסשנים ודגימות הסוללה במכשיר יימחקו. אי אפשר לבטל פעולה זו.")
+                .setNegativeButton("ביטול", null)
+                .setPositiveButton("מחק") { _, _ -> lifecycleScope.launch { repository.deleteAllHistory(); Toast.makeText(this@MainActivity, "ההיסטוריה נמחקה", Toast.LENGTH_SHORT).show() } }
+                .show()
+        }
+    }
+
+    private fun updatePermissionScreen() {
+        if (rootContent.findViewById<View>(R.id.accessibilityStatus) == null) return
+        val a = accessibilityEnabled(); val u = usageStats.hasUsageAccess()
+        findViewById<TextView>(R.id.accessibilityStatus).text = if (a) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
+        findViewById<TextView>(R.id.usageStatus).text = if (u) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
+        findViewById<TextView>(R.id.accessibilityDetails).text = "נדרש כדי לקבל אירועי ממשק שהמערכת ואפליקציות המקור חושפות ל־Accessibility. מידע שלא נחשף לא יוכל להיקלט."
+        findViewById<TextView>(R.id.usageDetails).text = "משמש למדידת זמן שימוש באפליקציות דרך UsageStatsManager. Android עשויה להגביל או לשנות את הנתונים הזמינים."
+    }
+
+    private fun updateBatteryScreenIfVisible(samples: List<BatterySampleEntity>) {
+        if (navStack.lastOrNull() != "battery") return
+        val latest = samples.firstOrNull() ?: return
+        findViewById<TextView>(R.id.batteryLevel).text = "${latest.batteryLevel}%"
+        findViewById<TextView>(R.id.batteryCharging).text = if (latest.charging) "מחובר לטעינה" else "לא בטעינה"
+        findViewById<TextView>(R.id.batterySampleTime).text = "זמן דגימה: ${Formatters.dateTime(latest.timestamp)}"
+        findViewById<TextView>(R.id.batteryTemp).text = latest.temperature?.let { "טמפרטורה: %.1f°C".format(it) } ?: "טמפרטורה: המידע אינו זמין מהמכשיר"
+    }
+
+    private fun openEvent(event: ActivityEventEntity) {
+        navStack.addLast("event:${event.id}")
+        inflateScreen(R.layout.screen_event_detail, "פרטי הפעולה")
+        lifecycleScope.launch {
+            val item = viewModel.event(event.id)
+            if (item == null) { Toast.makeText(this@MainActivity, "האירוע כבר לא קיים", Toast.LENGTH_SHORT).show(); navStack.removeLast(); render(navStack.lastOrNull() ?: "dashboard"); return@launch }
+            iconCache.get(item.packageName)?.let { findViewById<ImageView>(R.id.detailIcon).setImageDrawable(it) }
+            findViewById<TextView>(R.id.detailApp).text = item.appName
+            findViewById<TextView>(R.id.detailWhen).text = Formatters.dateTime(item.timestamp)
+            findViewById<TextView>(R.id.detailType).text = item.eventDescription
+            findViewById<TextView>(R.id.detailText).text = item.text ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailContentDescription).text = item.contentDescription ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailViewId).text = item.viewId ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailClass).text = item.className ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailActivity).text = item.activityName ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailPackage).text = item.packageName
+            findViewById<TextView>(R.id.detailSession).text = item.sessionId?.toString() ?: "המידע אינו זמין מאפליקציית המקור"
+            findViewById<TextView>(R.id.detailTechnical).text = CryptoManager(this@MainActivity).decrypt(item.sourceInfo ?: "מידע מקור נוסף אינו זמין")
+            val container = findViewById<View>(R.id.technicalContainer)
+            findViewById<Switch>(R.id.technicalToggle).setOnCheckedChangeListener { _, checked -> container.visibility = if (checked) View.VISIBLE else View.GONE }
+        }
+    }
+
+    private fun openAppTimeline(packageName: String, name: String) {
+        navStack.addLast("apptimeline:$packageName")
+        inflateScreen(R.layout.screen_app_timeline, "פעילות: $name")
+        val list = findViewById<RecyclerView>(R.id.appTimelineRecycler)
+        val adapter = EventAdapter(iconCache) { openEvent(it) }
+        list.layoutManager = LinearLayoutManager(this); list.adapter = adapter
+        lifecycleScope.launch { adapter.submitList(viewModel.packageEvents(packageName, Formatters.dayStart(-29), System.currentTimeMillis() + 1)) }
+    }
+
+    private fun accessibilityEnabled(): Boolean {
+        val manager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val expected = ComponentName(this, com.example.activitymonitor.monitoring.MonitorAccessibilityService::class.java)
+        return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { info ->
+            val s = info.resolveInfo.serviceInfo
+            ComponentName(s.packageName, s.name) == expected
+        }
+    }
+}
