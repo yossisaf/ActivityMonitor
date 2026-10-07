@@ -6,4 +6,7 @@
     <color name="text_primary">#172033</color>
     <color name="text_secondary">#586174</color>
     <color name="divider">#DDE1EA</color>
+    <color name="success">#178A5B</color>
+    <color name="warning">#A86B00</color>
+    <color name="error">#B3261E</color>
 </resources>
