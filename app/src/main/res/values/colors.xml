@@ -1,11 +1,15 @@
 <resources>
     <color name="primary">#3559B7</color>
     <color name="primary_dark">#1E3A8A</color>
-    <color name="surface">#F7F8FC</color>
+    <color name="surface">#F4F6FA</color>
     <color name="surface_card">#FFFFFF</color>
-    <color name="text_primary">#172033</color>
-    <color name="text_secondary">#586174</color>
-    <color name="divider">#DDE1EA</color>
+    <color name="surface_tint">#E9EEFB</color>
+    <color name="hero_background">#3559B7</color>
+    <color name="text_primary">#152033</color>
+    <color name="text_secondary">#5D687B</color>
+    <color name="nav_text">#667085</color>
+    <color name="nav_selected">#E8EDFC</color>
+    <color name="divider">#DCE2EC</color>
     <color name="success">#178A5B</color>
     <color name="warning">#A86B00</color>
     <color name="error">#B3261E</color>
