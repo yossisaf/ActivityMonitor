@@ -270,6 +270,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
         findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("search") }
+        findViewById<Button>(R.id.dashboardRecordings).setOnClickListener { render("recordings") }
         refreshDashboard()
         updatePermissionBanner()
     }
@@ -376,7 +377,12 @@ class MainActivity : AppCompatActivity() {
                 settings[pkg]?.enabled ?: true,
                 getScreenRecordingPackages().contains(pkg)
             )
-        }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
+        }.sortedWith(
+            compareByDescending<AppRow> { it.screenRecord }
+                .thenByDescending { it.enabled }
+                .thenByDescending { it.todayMs }
+                .thenBy { it.name.lowercase() }
+        )
         if (navStack.lastOrNull() == "apps") {
             appAdapter.submitList(rows)
             findViewById<TextView>(R.id.appsCount).text = "${rows.size} אפליקציות זמינות למעקב"
@@ -482,6 +488,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
         findViewById<Button>(R.id.changePassword).setOnClickListener { showChangePasswordDialog() }
         findViewById<Button>(R.id.openRecordings).setOnClickListener { render("recordings") }
+        val advancedToggle = findViewById<Button>(R.id.advancedToggle)
+        val advanced = findViewById<View>(R.id.advancedContainer)
+        advancedToggle.setOnClickListener {
+            val open = advanced.visibility != View.VISIBLE
+            advanced.visibility = if (open) View.VISIBLE else View.GONE
+            advancedToggle.text = if (open) "אפשרויות מתקדמות  ↓" else "אפשרויות מתקדמות  ›"
+        }
         findViewById<Button>(R.id.startScreenCapture).setOnClickListener { requestScreenCapture() }
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         findViewById<Switch>(R.id.captureTextSwitch).apply { isChecked = prefs.getBoolean("capture_text", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_text", c).apply() } }
