@@ -24,6 +24,14 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      - name: Install compatible Gradle
+        run: |
+          curl -fsSL https://services.gradle.org/distributions/gradle-9.5-bin.zip -o /tmp/gradle.zip
+          rm -rf "$HOME/gradle-9.5"
+          unzip -q /tmp/gradle.zip -d "$HOME"
+          echo "$HOME/gradle-9.5/bin" >> "$GITHUB_PATH"
+          "$HOME/gradle-9.5/bin/gradle" --version
+
       - name: Build release
         run: gradle --no-daemon --stacktrace assembleRelease
 
