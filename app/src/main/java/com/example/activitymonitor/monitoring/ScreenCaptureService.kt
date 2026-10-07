@@ -44,7 +44,7 @@ class ScreenCaptureService : Service() {
         if (projection == null) {
             val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, -1) ?: -1
             val resultData = extractIntent(intent, EXTRA_RESULT_DATA)
-            if (resultCode > 0 && resultData != null) {
+            if (resultCode == -1 && resultData != null) {
                 startProjection(resultCode, resultData)
             }
         }
@@ -239,5 +239,7 @@ class ScreenCaptureService : Service() {
         fun stop(context: Context) {
             context.stopService(Intent(context, ScreenCaptureService::class.java))
         }
+
+        fun isRunning(): Boolean = instance?.running == true
     }
 }
