@@ -172,8 +172,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNav() {
-        mapOf(R.id.navDashboard to "dashboard", R.id.navApps to "apps", R.id.navStats to "stats", R.id.navPermissions to "permissions")
-            .forEach { (id, key) -> findViewById<Button>(id).setOnClickListener { render(key) } }
+        mapOf(
+            R.id.navDashboard to "dashboard",
+            R.id.navApps to "apps",
+            R.id.navStats to "stats",
+            R.id.navPermissions to "permissions"
+        ).forEach { (id, key) ->
+            findViewById<Button>(id).setOnClickListener { selectRootTab(key) }
+        }
+    }
+
+    private fun selectRootTab(key: String) {
+        navStack.clear()
+        navStack.addLast(key)
+        render(key)
+    }
+
+    private fun updateNavSelection(key: String) {
+        findViewById<Button>(R.id.navDashboard).isSelected = key == "dashboard"
+        findViewById<Button>(R.id.navApps).isSelected = key == "apps" || key.startsWith("apptimeline:")
+        findViewById<Button>(R.id.navStats).isSelected = key == "stats" || key == "battery"
+        findViewById<Button>(R.id.navPermissions).isSelected = key == "permissions"
     }
 
     private fun setupAdapters() {
@@ -199,6 +218,7 @@ class MainActivity : AppCompatActivity() {
     private fun render(key: String) {
         if (navStack.lastOrNull() != key) navStack.addLast(key)
         toolbarBack.visibility = if (navStack.size > 1) View.VISIBLE else View.GONE
+        updateNavSelection(key)
         when (key) {
             "dashboard" -> showDashboard()
             "apps" -> showApps()
@@ -232,36 +252,80 @@ class MainActivity : AppCompatActivity() {
             setHasFixedSize(true)
         }
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
+        findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("search") }
         refreshDashboard()
         updatePermissionBanner()
     }
 
     private fun refreshDashboard() {
         lifecycleScope.launch {
+            val now = System.currentTimeMillis() + 1
+            val today = Formatters.dayStart()
             val sessions = repository.recentSessions(40)
+            val openings = repository.sessionCount(today, now)
+            val events = repository.eventCount(today, now)
+            val usage = if (usageStats.hasUsageAccess()) {
+                usageStats.queryAggregated(today, now).values.sum()
+            } else {
+                repository.totalDuration(today, now)
+            }
             if (navStack.lastOrNull() != "dashboard") return@launch
+
             recentAppAdapter.submitList(sessions)
+            findViewById<TextView>(R.id.dashboardOpenings).text = openings.toString()
+            findViewById<TextView>(R.id.dashboardEvents).text = events.toString()
+            findViewById<TextView>(R.id.dashboardUsage).text = Formatters.duration(usage)
             findViewById<TextView>(R.id.recentCount).text =
-                if (sessions.isEmpty()) "" else "\${sessions.size} פתיחות"
+                if (sessions.isEmpty()) "אין היסטוריה עדיין" else "${sessions.size} פתיחות אחרונות"
             findViewById<TextView>(R.id.recentEmpty).visibility =
                 if (sessions.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
     private fun updatePermissionBanner() {
-        if (!rootContent.findViewById<View>(R.id.permissionBanner).isAttachedToWindow) return
-        val a = accessibilityEnabled(); val u = usageStats.hasUsageAccess()
-        findViewById<TextView>(R.id.permissionBanner).text = when {
-            a && u -> "הניטור פעיל. המערכת מאפשרת איסוף אירועי ממשק ונתוני שימוש."
-            a -> "שירות הנגישות פעיל. גישה לנתוני שימוש אינה פעילה."
-            u -> "גישה לנתוני שימוש פעילה. שירות הנגישות אינו פעיל."
-            else -> "יש לבדוק ולהפעיל את ההרשאות הנדרשות לקבלת מידע רחב יותר."
+        val banner = rootContent.findViewById<TextView>(R.id.permissionBanner) ?: return
+        if (!banner.isAttachedToWindow) return
+        val a = accessibilityEnabled()
+        val u = usageStats.hasUsageAccess()
+        val statusTitle = findViewById<TextView>(R.id.dashboardStatusTitle)
+        val hint = findViewById<TextView>(R.id.permissionHint)
+        val dot = findViewById<View>(R.id.permissionDot)
+
+        when {
+            a && u -> {
+                statusTitle?.text = "הניטור פעיל"
+                banner.text = "שירות הנגישות ונתוני השימוש זמינים."
+                hint?.text = "הפתיחות והפעולות האחרונות ממשיכות להיאסף."
+                dot?.setBackgroundResource(R.drawable.bg_permission_dot_ok)
+            }
+            a -> {
+                statusTitle?.text = "הניטור פעיל חלקית"
+                banner.text = "שירות הנגישות פעיל, אבל גישה לנתוני שימוש חסרה."
+                hint?.text = "הפעל אותה בהגדרות כדי לקבל גם זמני שימוש."
+                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
+            }
+            u -> {
+                statusTitle?.text = "הניטור מוגבל"
+                banner.text = "נתוני שימוש זמינים, אבל שירות הנגישות כבוי."
+                hint?.text = "הפעל אותו כדי לקבל גם פעולות בתוך אפליקציות."
+                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
+            }
+            else -> {
+                statusTitle?.text = "נדרשת השלמת הרשאות"
+                banner.text = "שני מקורות המידע המרכזיים אינם פעילים."
+                hint?.text = "לחץ על "הרשאות" כדי לפתוח את ההגדרות הרלוונטיות."
+                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
+            }
         }
     }
 
     private fun showApps() {
         inflateScreen(R.layout.screen_apps, "אפליקציות")
-        findViewById<RecyclerView>(R.id.appsRecycler).apply { layoutManager = LinearLayoutManager(this@MainActivity); adapter = appAdapter }
+        findViewById<RecyclerView>(R.id.appsRecycler).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = appAdapter
+        }
+        findViewById<Button>(R.id.openSearch).setOnClickListener { render("search") }
         lifecycleScope.launch { loadApps() }
     }
 
@@ -282,7 +346,10 @@ class MainActivity : AppCompatActivity() {
                 repository.countSessionsForPackage(pkg, week, now), repository.countEventsForPackage(pkg, week, now),
                 repository.latestEvent(pkg)?.eventDescription, settings[pkg]?.enabled ?: true)
         }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
-        if (navStack.lastOrNull() == "apps") appAdapter.submitList(rows)
+        if (navStack.lastOrNull() == "apps") {
+            appAdapter.submitList(rows)
+            findViewById<TextView>(R.id.appsCount).text = "${rows.size} אפליקציות זמינות למעקב"
+        }
     }
 
     private fun showStats() {
@@ -487,11 +554,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun openAppTimeline(packageName: String, name: String) {
         navStack.addLast("apptimeline:$packageName")
-        inflateScreen(R.layout.screen_app_timeline, "פעילות: $name")
+        inflateScreen(R.layout.screen_app_timeline, "פעילות")
+        iconCache.get(packageName)?.let { findViewById<ImageView>(R.id.appTimelineIcon).setImageDrawable(it) }
+        findViewById<TextView>(R.id.appTimelineTitle).text = name
+        findViewById<TextView>(R.id.appTimelineSubtitle).text = "הפעולות שנקלטו ב־30 הימים האחרונים"
         val list = findViewById<RecyclerView>(R.id.appTimelineRecycler)
+        val empty = findViewById<TextView>(R.id.appTimelineEmpty)
+        val meta = findViewById<TextView>(R.id.appTimelineMeta)
         val adapter = EventAdapter(iconCache) { openEvent(it) }
-        list.layoutManager = LinearLayoutManager(this); list.adapter = adapter
-        lifecycleScope.launch { adapter.submitList(viewModel.packageEvents(packageName, Formatters.dayStart(-29), System.currentTimeMillis() + 1)) }
+        list.layoutManager = LinearLayoutManager(this)
+        list.adapter = adapter
+        lifecycleScope.launch {
+            val events = viewModel.packageEvents(packageName, Formatters.dayStart(-29), System.currentTimeMillis() + 1)
+            if (navStack.lastOrNull() != "apptimeline:$packageName") return@launch
+            adapter.submitList(events)
+            meta.text = if (events.isEmpty()) "אין פעולות שנקלטו בטווח" else "${events.size} פעולות • החדשה ביותר מוצגת ראשונה"
+            empty.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
+        }
     }
 
     private fun accessibilityEnabled(): Boolean {
