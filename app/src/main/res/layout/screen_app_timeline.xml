@@ -3,26 +3,74 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp">
-    <TextView
-        android:id="@+id/appTimelineTitle"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="10dp">
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="21sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary" />
+        android:padding="14dp"
+        android:background="@drawable/bg_card"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/appTimelineIcon"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:contentDescription="אייקון האפליקציה" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/appTimelineTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/appTimelineSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/appTimelineMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textColor="@color/primary"
+                android:textStyle="bold"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
     <TextView
-        android:id="@+id/appTimelineSubtitle"
+        android:id="@+id/appTimelineEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textColor="@color/text_secondary" />
+        android:paddingTop="34dp"
+        android:gravity="center"
+        android:text="אין פעולות שנקלטו באפליקציה הזו בטווח שנבחר."
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/appTimelineRecycler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
         android:clipToPadding="false"
         android:paddingBottom="8dp" />
 </LinearLayout>
