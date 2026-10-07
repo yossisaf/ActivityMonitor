@@ -71,16 +71,37 @@
             android:textColor="#DCE5FF"
             android:textSize="12sp" />
 
-        <Button
-            android:id="@+id/dashboardSearch"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="42dp"
             android:layout_marginTop="12dp"
-            android:minWidth="0dp"
-            android:text="חיפוש מהיר בהיסטוריה"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:background="@drawable/bg_action" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/dashboardSearch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="חיפוש בהיסטוריה"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                android:textColor="@android:color/white"
+                android:background="@drawable/bg_action" />
+
+            <Button
+                android:id="@+id/dashboardRecordings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="7dp"
+                android:minWidth="0dp"
+                android:text="הקלטות מסך"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                android:textColor="@color/primary"
+                android:background="@drawable/bg_metric" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
