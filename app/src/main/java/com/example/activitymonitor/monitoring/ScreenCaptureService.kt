@@ -7,7 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
-import android.hardware.display.MediaProjection
+import android.media.projection.MediaProjection
 import android.media.MediaRecorder
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -123,7 +123,6 @@ class ScreenCaptureService : Service() {
             mr.setVideoSize(width, height)
             mr.setVideoFrameRate(1)
             mr.setVideoEncodingBitRate(220_000)
-            mr.setVideoIFrameInterval(2)
             mr.setOutputFile(file.absolutePath)
             mr.prepare()
 
