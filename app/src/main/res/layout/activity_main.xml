@@ -92,7 +92,7 @@
 ראשי"
             android:textSize="12sp"
             android:textAllCaps="false"
-            android:textColor="@color/nav_text"
+            android:textColor="@color/nav_text_selector"
             android:background="@drawable/bg_nav_item" />
 
         <Button
@@ -108,7 +108,7 @@
 אפליקציות"
             android:textSize="12sp"
             android:textAllCaps="false"
-            android:textColor="@color/nav_text"
+            android:textColor="@color/nav_text_selector"
             android:background="@drawable/bg_nav_item" />
 
         <Button
@@ -124,7 +124,7 @@
 סטטיסטיקה"
             android:textSize="12sp"
             android:textAllCaps="false"
-            android:textColor="@color/nav_text"
+            android:textColor="@color/nav_text_selector"
             android:background="@drawable/bg_nav_item" />
 
         <Button
@@ -140,7 +140,7 @@
 הגדרות"
             android:textSize="12sp"
             android:textAllCaps="false"
-            android:textColor="@color/nav_text"
+            android:textColor="@color/nav_text_selector"
             android:background="@drawable/bg_nav_item" />
     </LinearLayout>
 </LinearLayout>
