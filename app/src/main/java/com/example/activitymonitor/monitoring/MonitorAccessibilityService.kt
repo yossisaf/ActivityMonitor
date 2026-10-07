@@ -37,7 +37,12 @@ class MonitorAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!::repository.isInitialized || event == null) return
         val pkg = event.packageName?.toString() ?: return
-        if (pkg == packageName || !getSharedPreferences("settings", MODE_PRIVATE).getBoolean("track_$pkg", true)) return
+        if (pkg == packageName) {
+            ScreenCaptureService.setActivePackage(null)
+            return
+        }
+        ScreenCaptureService.setActivePackage(pkg)
+        if (!getSharedPreferences("settings", MODE_PRIVATE).getBoolean("track_$pkg", true)) return
         val now = System.currentTimeMillis()
         val source = runCatching { event.source }.getOrNull()
         val password = runCatching { source?.isPassword == true }.getOrDefault(false)
