@@ -556,7 +556,7 @@ class MainActivity : AppCompatActivity() {
             if (captureEnabled) "תיעוד מסך: פעיל" else "תיעוד מסך: כבוי"
         findViewById<TextView>(R.id.screenCaptureDetails).text =
             if (captureEnabled) "הקלטה תתחיל רק כאשר אפליקציה שסומנה לתיעוד נמצאת בחזית."
-            else "סמן אפליקציות במסך "אפליקציות" והפעל את תיעוד המסך. Android יציג בקשת אישור."
+            else "סמן אפליקציות במסך \"אפליקציות\" והפעל את תיעוד המסך. Android יציג בקשת אישור."
     }
 
     private fun getScreenRecordingPackages(): MutableSet<String> {
