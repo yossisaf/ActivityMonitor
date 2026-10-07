@@ -17,18 +17,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
 
-      - name: Make Gradle executable
-        run: chmod +x ./gradlew
-
       - name: Build release
-        run: ./gradlew --no-daemon --stacktrace assembleRelease
+        run: gradle --no-daemon --stacktrace assembleRelease
 
       - name: Verify APK
         run: |
