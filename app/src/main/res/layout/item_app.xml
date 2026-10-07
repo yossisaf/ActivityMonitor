@@ -68,8 +68,7 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:text="מעקב"
-            android:textSize="12sp"
-            android:contentDescription="הפעלה או כיבוי מעקב לאפליקציה" />
+            android:textSize="12sp" />
 
         <Switch
             android:id="@+id/appRecordToggle"
@@ -77,7 +76,6 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:text="תיעוד מסך"
-            android:textSize="12sp"
-            android:contentDescription="הפעלה או כיבוי תיעוד מסך לאפליקציה" />
+            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>
