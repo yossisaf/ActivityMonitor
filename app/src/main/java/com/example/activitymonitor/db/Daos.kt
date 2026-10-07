@@ -11,6 +11,7 @@ interface SessionDao {
     @Insert suspend fun insert(session: ApplicationSessionEntity): Long
     @Query("UPDATE application_sessions SET endTime = :endTime, duration = MAX(0, :endTime - startTime) WHERE id = :id") suspend fun close(id: Long, endTime: Long): Int
     @Query("UPDATE application_sessions SET endTime = :endTime, duration = MAX(0, :endTime - startTime) WHERE endTime IS NULL") suspend fun closeAllOpen(endTime: Long): Int
+    @Query("SELECT * FROM application_sessions ORDER BY startTime DESC LIMIT :limit") suspend fun recent(limit: Int): List<ApplicationSessionEntity>
     @Query("SELECT COUNT(*) FROM application_sessions WHERE packageName = :packageName AND startTime >= :start AND startTime < :end") suspend fun countForPackage(packageName: String, start: Long, end: Long): Int
     @Query("SELECT COALESCE(SUM(CASE WHEN endTime IS NULL THEN MAX(0, :now - startTime) ELSE duration END),0) FROM application_sessions WHERE startTime >= :start AND startTime < :end") suspend fun totalDuration(start: Long, end: Long, now: Long): Long
     @Query("SELECT COUNT(*) FROM application_sessions WHERE startTime >= :start AND startTime < :end") suspend fun count(start: Long, end: Long): Int
