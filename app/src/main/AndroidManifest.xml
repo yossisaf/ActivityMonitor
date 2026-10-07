@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <application
         android:name=".MonitorApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="ניטור המכשיר"
         android:supportsRtl="true"
         android:theme="@style/Theme.ActivityMonitor"
         android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="portrait">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -19,8 +23,12 @@
             android:exported="true"
             android:label="ניטור המכשיר – שירות נגישות"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
-            <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config" />
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
         </service>
     </application>
 </manifest>
