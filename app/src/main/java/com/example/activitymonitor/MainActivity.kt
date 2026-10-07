@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         if (mainUiInitialized && navStack.lastOrNull() == "dashboard") refreshDashboard()
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
-            "dashboard" -> { loadDashboardStats(); updatePermissionBanner() }
+            "dashboard" -> updatePermissionBanner()
         }
     }
 
