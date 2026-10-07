@@ -43,14 +43,6 @@
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
-
-        <Switch
-            android:id="@+id/appToggle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="מעקב"
-            android:textSize="11sp"
-            android:contentDescription="הפעלה או כיבוי מעקב לאפליקציה" />
     </LinearLayout>
 
     <TextView
@@ -58,7 +50,34 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:paddingTop="8dp"
         android:textColor="@color/text_secondary"
         android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:background="@color/surface_tint"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:orientation="horizontal">
+
+        <Switch
+            android:id="@+id/appToggle"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="מעקב"
+            android:textSize="12sp"
+            android:contentDescription="הפעלה או כיבוי מעקב לאפליקציה" />
+
+        <Switch
+            android:id="@+id/appRecordToggle"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="תיעוד מסך"
+            android:textSize="12sp"
+            android:contentDescription="הפעלה או כיבוי תיעוד מסך לאפליקציה" />
+    </LinearLayout>
 </LinearLayout>
