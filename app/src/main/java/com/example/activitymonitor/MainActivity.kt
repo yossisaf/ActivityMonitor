@@ -10,6 +10,7 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Switch
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appAdapter: AppAdapter
     private lateinit var recentAppAdapter: RecentAppAdapter
     private lateinit var passwordManager: PasswordManager
+    private lateinit var toolbarBack: ImageButton
     private var mainUiInitialized = false
     private var permissionPromptShown = false
     private val navStack = ArrayDeque<String>()
@@ -70,12 +72,14 @@ class MainActivity : AppCompatActivity() {
         usageStats = UsageStatsRepository(this)
         iconCache = AppIconCache(this)
         passwordManager = PasswordManager(this)
+        toolbarBack = findViewById(R.id.toolbarBack)
+        toolbarBack.setOnClickListener { navigateBack() }
         viewModel = ViewModelProvider(this, MainViewModel.Factory(repository))[MainViewModel::class.java]
         rootContent = findViewById(R.id.screenContainer)
         title = findViewById(R.id.toolbarTitle)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (navStack.size > 1) { navStack.removeLast(); render(navStack.last()) } else finish()
+                navigateBack()
             }
         })
         showPasswordGate()
@@ -94,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         mainUiInitialized = false
         rootContent.removeAllViews()
         bottomNavVisibility(false)
+        toolbarBack.visibility = View.GONE
         title.text = "ניטור המכשיר"
         layoutInflater.inflate(R.layout.screen_lock, rootContent, true)
 
@@ -166,7 +171,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNav() {
-        mapOf(R.id.navDashboard to "dashboard", R.id.navApps to "apps", R.id.navStats to "stats", R.id.navSearch to "search", R.id.navPermissions to "permissions")
+        mapOf(R.id.navDashboard to "dashboard", R.id.navApps to "apps", R.id.navStats to "stats", R.id.navPermissions to "permissions")
             .forEach { (id, key) -> findViewById<Button>(id).setOnClickListener { render(key) } }
     }
 
@@ -192,6 +197,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(key: String) {
         if (navStack.lastOrNull() != key) navStack.addLast(key)
+        toolbarBack.visibility = if (navStack.size > 1) View.VISIBLE else View.GONE
         when (key) {
             "dashboard" -> showDashboard()
             "apps" -> showApps()
@@ -206,6 +212,15 @@ class MainActivity : AppCompatActivity() {
         rootContent.removeAllViews()
         layoutInflater.inflate(layout, rootContent, true)
         title.text = titleText
+    }
+
+    private fun navigateBack() {
+        if (navStack.size > 1) {
+            navStack.removeLast()
+            render(navStack.last())
+        } else {
+            finish()
+        }
     }
 
     private fun showDashboard() {
