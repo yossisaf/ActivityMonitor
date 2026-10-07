@@ -20,6 +20,32 @@
         android:text="הקלטה באיכות נמוכה ובקצב של 1 תמונה לשנייה, ללא אודיו."
         android:textSize="12sp"
         android:textColor="@color/text_secondary" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="9dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/recordingsSummary"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0 הקלטות"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
+
+        <Button
+            android:id="@+id/deleteAllRecordings"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="0dp"
+            android:text="מחק הכול"
+            android:textAllCaps="false"
+            android:textSize="11sp"
+            android:textColor="@color/error" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/recordingsEmpty"
         android:layout_width="match_parent"
