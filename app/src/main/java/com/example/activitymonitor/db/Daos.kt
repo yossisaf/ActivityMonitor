@@ -27,6 +27,7 @@ interface EventDao {
     @Query("SELECT * FROM activity_events WHERE packageName = :packageName AND timestamp >= :start AND timestamp < :end ORDER BY timestamp DESC LIMIT :limit") suspend fun byPackage(packageName: String, start: Long, end: Long, limit: Int): List<ActivityEventEntity>
     @Query("SELECT COUNT(*) FROM activity_events WHERE packageName = :packageName AND timestamp >= :start AND timestamp < :end") suspend fun countForPackage(packageName: String, start: Long, end: Long): Int
     @Query("SELECT packageName, appName, COUNT(*) AS count, (SELECT e2.eventDescription FROM activity_events e2 WHERE e2.packageName = e.packageName AND e2.timestamp >= :start AND e2.timestamp < :end ORDER BY e2.timestamp DESC LIMIT 1) AS lastAction FROM activity_events e WHERE timestamp >= :start AND timestamp < :end GROUP BY packageName, appName") suspend fun summariesByPackage(start: Long, end: Long): List<PackageEventSummary>
+    @Query("SELECT * FROM activity_events WHERE packageName = :packageName ORDER BY timestamp DESC LIMIT 1") suspend fun latestForPackage(packageName: String): ActivityEventEntity?
     @Query("""
         SELECT * FROM activity_events
         WHERE timestamp >= :start AND timestamp < :end
