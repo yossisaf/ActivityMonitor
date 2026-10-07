@@ -21,6 +21,11 @@
             </intent-filter>
         </activity>
         <service
+            android:name=".monitoring.ScreenCaptureService"
+            android:exported="false"
+            android:label="ניטור המכשיר – תיעוד מסך" />
+
+        <service
             android:name=".monitoring.MonitorAccessibilityService"
             android:exported="true"
             android:label="ניטור המכשיר – שירות נגישות"
