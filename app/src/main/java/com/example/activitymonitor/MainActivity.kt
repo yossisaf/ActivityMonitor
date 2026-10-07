@@ -162,7 +162,6 @@ class MainActivity : AppCompatActivity() {
         setupAdapters()
         setupCollectors()
         render("dashboard")
-        maybePromptUsageAccess()
     }
 
     private fun maybePromptUsageAccess() {
