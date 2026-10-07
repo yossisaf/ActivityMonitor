@@ -339,12 +339,22 @@ class MainActivity : AppCompatActivity() {
         }.timeInMillis
         val todayUsage = usageStats.queryAggregated(today, now); val weekUsage = usageStats.queryAggregated(week, now)
         val settings = repository.trackingSettings().associateBy { it.packageName }
+        val sessionCounts = repository.packageSessionCounts(week, now).associate { it.packageName to it.count }
+        val eventSummaries = repository.packageEventSummaries(week, now).associateBy { it.packageName }
         val rows = apps.map { info ->
             val pkg = info.packageName
             val name = pm.getApplicationLabel(info).toString().ifBlank { pkg }
-            AppRow(pkg, name, todayUsage[pkg] ?: 0L, weekUsage[pkg] ?: 0L,
-                repository.countSessionsForPackage(pkg, week, now), repository.countEventsForPackage(pkg, week, now),
-                repository.latestEvent(pkg)?.eventDescription, settings[pkg]?.enabled ?: true)
+            val summary = eventSummaries[pkg]
+            AppRow(
+                pkg,
+                name,
+                todayUsage[pkg] ?: 0L,
+                weekUsage[pkg] ?: 0L,
+                sessionCounts[pkg] ?: 0,
+                summary?.count ?: 0,
+                summary?.lastAction,
+                settings[pkg]?.enabled ?: true
+            )
         }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
         if (navStack.lastOrNull() == "apps") {
             appAdapter.submitList(rows)
