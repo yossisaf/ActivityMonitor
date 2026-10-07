@@ -313,7 +313,7 @@ class MainActivity : AppCompatActivity() {
             else -> {
                 statusTitle?.text = "נדרשת השלמת הרשאות"
                 banner.text = "שני מקורות המידע המרכזיים אינם פעילים."
-                hint?.text = "לחץ על "הרשאות" כדי לפתוח את ההגדרות הרלוונטיות."
+                hint?.text = "לחץ על \"הרשאות\" כדי לפתוח את ההגדרות הרלוונטיות."
                 dot?.setBackgroundResource(R.drawable.bg_permission_dot)
             }
         }
