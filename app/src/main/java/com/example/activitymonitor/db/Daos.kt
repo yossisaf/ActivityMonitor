@@ -12,7 +12,7 @@ interface SessionDao {
     @Query("UPDATE application_sessions SET endTime = :endTime, duration = MAX(0, :endTime - startTime) WHERE id = :id") suspend fun close(id: Long, endTime: Long): Int
     @Query("UPDATE application_sessions SET endTime = :endTime, duration = MAX(0, :endTime - startTime) WHERE endTime IS NULL") suspend fun closeAllOpen(endTime: Long): Int
     @Query("SELECT * FROM application_sessions ORDER BY startTime DESC LIMIT :limit") suspend fun recent(limit: Int): List<ApplicationSessionEntity>
-    @Query("SELECT COUNT(*) FROM application_sessions WHERE packageName = :packageName AND startTime >= :start AND startTime < :end") suspend fun countForPackage(packageName: String, start: Long, end: Long): Int
+    @Query("SELECT packageName, COUNT(*) AS count FROM application_sessions WHERE startTime >= :start AND startTime < :end GROUP BY packageName") suspend fun countsByPackage(start: Long, end: Long): List<SessionPackageCount>
     @Query("SELECT COALESCE(SUM(CASE WHEN endTime IS NULL THEN MAX(0, :now - startTime) ELSE duration END),0) FROM application_sessions WHERE startTime >= :start AND startTime < :end") suspend fun totalDuration(start: Long, end: Long, now: Long): Long
     @Query("SELECT COUNT(*) FROM application_sessions WHERE startTime >= :start AND startTime < :end") suspend fun count(start: Long, end: Long): Int
     @Query("DELETE FROM application_sessions WHERE startTime < :cutoff") suspend fun deleteOlderThan(cutoff: Long): Int
@@ -26,7 +26,7 @@ interface EventDao {
     @Query("SELECT * FROM activity_events ORDER BY timestamp DESC LIMIT :limit") fun observeRecent(limit: Int): Flow<List<ActivityEventEntity>>
     @Query("SELECT * FROM activity_events WHERE packageName = :packageName AND timestamp >= :start AND timestamp < :end ORDER BY timestamp DESC LIMIT :limit") suspend fun byPackage(packageName: String, start: Long, end: Long, limit: Int): List<ActivityEventEntity>
     @Query("SELECT COUNT(*) FROM activity_events WHERE packageName = :packageName AND timestamp >= :start AND timestamp < :end") suspend fun countForPackage(packageName: String, start: Long, end: Long): Int
-    @Query("SELECT * FROM activity_events WHERE packageName = :packageName ORDER BY timestamp DESC LIMIT 1") suspend fun latestForPackage(packageName: String): ActivityEventEntity?
+    @Query("SELECT packageName, appName, COUNT(*) AS count, (SELECT e2.eventDescription FROM activity_events e2 WHERE e2.packageName = e.packageName AND e2.timestamp >= :start AND e2.timestamp < :end ORDER BY e2.timestamp DESC LIMIT 1) AS lastAction FROM activity_events e WHERE timestamp >= :start AND timestamp < :end GROUP BY packageName, appName") suspend fun summariesByPackage(start: Long, end: Long): List<PackageEventSummary>
     @Query("""
         SELECT * FROM activity_events
         WHERE timestamp >= :start AND timestamp < :end
@@ -54,6 +54,8 @@ interface EventDao {
 
 data class EventCount(val eventType: Int, val count: Int)
 data class AppCount(val packageName: String, val appName: String, val count: Int)
+data class SessionPackageCount(val packageName: String, val count: Int)
+data class PackageEventSummary(val packageName: String, val appName: String, val count: Int, val lastAction: String?)
 
 @Dao
 interface BatteryDao {
