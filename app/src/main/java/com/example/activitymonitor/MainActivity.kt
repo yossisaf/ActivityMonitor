@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.media.projection.MediaProjectionManager
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
@@ -32,6 +33,8 @@ import com.example.activitymonitor.repository.AppIconCache
 import com.example.activitymonitor.repository.CryptoManager
 import com.example.activitymonitor.repository.MonitorRepository
 import com.example.activitymonitor.repository.PasswordManager
+import com.example.activitymonitor.monitoring.ScreenCaptureService
+import com.example.activitymonitor.ui.RecordingAdapter
 import com.example.activitymonitor.repository.UsageStatsRepository
 import com.example.activitymonitor.ui.AppAdapter
 import com.example.activitymonitor.ui.AppRow
@@ -43,6 +46,7 @@ import com.example.activitymonitor.ui.MainViewModel
 import com.example.activitymonitor.ui.RecentAppAdapter
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: MainViewModel
@@ -65,6 +69,8 @@ class MainActivity : AppCompatActivity() {
     private var searchCustomEnd: Long? = null
     private var searchPackageFilter: String? = null
     private var searchEventTypeFilter: Int? = null
+    private var pendingRecordPackage: String? = null
+    private val screenCaptureRequestCode = 7401
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -199,8 +205,18 @@ class MainActivity : AppCompatActivity() {
         eventAdapter = EventAdapter(iconCache) { openEvent(it) }
         searchAdapter = EventAdapter(iconCache) { openEvent(it) }
         recentAppAdapter = RecentAppAdapter(iconCache) { session -> openAppTimeline(session.packageName, session.appName) }
-        appAdapter = AppAdapter(iconCache,
-            onToggle = { pkg, enabled -> lifecycleScope.launch { repository.upsertTracking(pkg, enabled); getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("track_$pkg", enabled).apply() } },
+        appAdapter = AppAdapter(
+            icons = iconCache,
+            onToggle = { pkg, enabled ->
+                lifecycleScope.launch {
+                    repository.upsertTracking(pkg, enabled)
+                    getSharedPreferences("settings", MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("track_$pkg", enabled)
+                        .apply()
+                }
+            },
+            onRecordingToggle = { pkg, enabled -> setScreenRecordingForApp(pkg, enabled) },
             onClick = { row -> openAppTimeline(row.packageName, row.name) }
         )
     }
@@ -224,6 +240,7 @@ class MainActivity : AppCompatActivity() {
             "apps" -> showApps()
             "stats" -> showStats()
             "search" -> showSearch()
+            "recordings" -> showRecordings()
             "permissions" -> showPermissions()
             else -> showDashboard()
         }
@@ -356,7 +373,8 @@ class MainActivity : AppCompatActivity() {
                 sessionCounts[pkg] ?: 0,
                 eventCounts[pkg] ?: 0,
                 lastActions[pkg],
-                settings[pkg]?.enabled ?: true
+                settings[pkg]?.enabled ?: true,
+                getScreenRecordingPackages().contains(pkg)
             )
         }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
         if (navStack.lastOrNull() == "apps") {
@@ -463,6 +481,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.openAccessibility).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
         findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
         findViewById<Button>(R.id.changePassword).setOnClickListener { showChangePasswordDialog() }
+        findViewById<Button>(R.id.openRecordings).setOnClickListener { render("recordings") }
+        findViewById<Button>(R.id.startScreenCapture).setOnClickListener { requestScreenCapture() }
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         findViewById<Switch>(R.id.captureTextSwitch).apply { isChecked = prefs.getBoolean("capture_text", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_text", c).apply() } }
         findViewById<Switch>(R.id.captureSourceSwitch).apply { isChecked = prefs.getBoolean("capture_source", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_source", c).apply() } }
@@ -531,6 +551,87 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.usageStatus).text = if (u) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
         findViewById<TextView>(R.id.accessibilityDetails).text = "נדרש כדי לקבל אירועי ממשק שהמערכת ואפליקציות המקור חושפות ל־Accessibility. מידע שלא נחשף לא יוכל להיקלט."
         findViewById<TextView>(R.id.usageDetails).text = "משמש למדידת זמן שימוש באפליקציות דרך UsageStatsManager. Android עשויה להגביל או לשנות את הנתונים הזמינים."
+        val captureEnabled = ScreenCaptureService.isRunning()
+        findViewById<TextView>(R.id.screenCaptureStatus).text =
+            if (captureEnabled) "תיעוד מסך: פעיל" else "תיעוד מסך: כבוי"
+        findViewById<TextView>(R.id.screenCaptureDetails).text =
+            if (captureEnabled) "הקלטה תתחיל רק כאשר אפליקציה שסומנה לתיעוד נמצאת בחזית."
+            else "סמן אפליקציות במסך "אפליקציות" והפעל את תיעוד המסך. Android יציג בקשת אישור."
+    }
+
+    private fun getScreenRecordingPackages(): MutableSet<String> {
+        val prefs = getSharedPreferences("screen_recording", MODE_PRIVATE)
+        return (prefs.getStringSet(ScreenCaptureService.KEY_PACKAGES, emptySet()) ?: emptySet()).toMutableSet()
+    }
+
+    private fun setScreenRecordingForApp(packageName: String, enabled: Boolean) {
+        val selected = getScreenRecordingPackages()
+        if (enabled) {
+            selected.add(packageName)
+            getSharedPreferences("screen_recording", MODE_PRIVATE)
+                .edit()
+                .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
+                .apply()
+            if (!ScreenCaptureService.isRunning()) {
+                pendingRecordPackage = packageName
+                requestScreenCapture()
+            }
+        } else {
+            selected.remove(packageName)
+            getSharedPreferences("screen_recording", MODE_PRIVATE)
+                .edit()
+                .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
+                .apply()
+            if (ScreenCaptureService.isRunning()) {
+                if (selected.isEmpty()) ScreenCaptureService.stop(this)
+                else ScreenCaptureService.setActivePackage(null)
+            }
+        }
+    }
+
+    private fun requestScreenCapture() {
+        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        runCatching {
+            startActivityForResult(manager.createScreenCaptureIntent(), screenCaptureRequestCode)
+        }.onFailure {
+            Toast.makeText(this, "לא ניתן לפתוח את אישור תיעוד המסך במכשיר הזה", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    @Deprecated("Deprecated in Android API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != screenCaptureRequestCode) return
+        if (resultCode == RESULT_OK && data != null) {
+            ScreenCaptureService.start(this, resultCode, data)
+            Toast.makeText(this, "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
+        } else {
+            pendingRecordPackage?.let {
+                val selected = getScreenRecordingPackages()
+                selected.remove(it)
+                getSharedPreferences("screen_recording", MODE_PRIVATE)
+                    .edit()
+                    .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
+                    .apply()
+            }
+            Toast.makeText(this, "תיעוד המסך לא הופעל", Toast.LENGTH_SHORT).show()
+        }
+        pendingRecordPackage = null
+        if (navStack.lastOrNull() == "permissions") updatePermissionScreen()
+    }
+
+    private fun showRecordings() {
+        inflateScreen(R.layout.screen_recordings, "הקלטות")
+        val root = File(getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "ActivityMonitor")
+        val files = root.listFiles { file -> file.isFile && file.extension.equals("mp4", ignoreCase = true) }
+            ?.sortedByDescending { it.lastModified() }
+            ?: emptyList()
+        findViewById<RecyclerView>(R.id.recordingsRecycler).apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = RecordingAdapter(files)
+        }
+        findViewById<TextView>(R.id.recordingsEmpty).visibility =
+            if (files.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun updateBatteryScreenIfVisible(samples: List<BatterySampleEntity>) {
