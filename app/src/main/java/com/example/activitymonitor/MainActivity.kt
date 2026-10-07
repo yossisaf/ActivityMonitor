@@ -340,19 +340,22 @@ class MainActivity : AppCompatActivity() {
         val todayUsage = usageStats.queryAggregated(today, now); val weekUsage = usageStats.queryAggregated(week, now)
         val settings = repository.trackingSettings().associateBy { it.packageName }
         val sessionCounts = repository.packageSessionCounts(week, now).associate { it.packageName to it.count }
-        val eventSummaries = repository.packageEventSummaries(week, now).associateBy { it.packageName }
+        val eventRows = repository.eventsBetween(week, now, 5000)
+        val eventCounts = eventRows.groupingBy { it.packageName }.eachCount()
+        val lastActions = eventRows
+            .groupBy { it.packageName }
+            .mapValues { (_, rows) -> rows.maxByOrNull { it.timestamp }?.eventDescription }
         val rows = apps.map { info ->
             val pkg = info.packageName
             val name = pm.getApplicationLabel(info).toString().ifBlank { pkg }
-            val summary = eventSummaries[pkg]
             AppRow(
                 pkg,
                 name,
                 todayUsage[pkg] ?: 0L,
                 weekUsage[pkg] ?: 0L,
                 sessionCounts[pkg] ?: 0,
-                summary?.count ?: 0,
-                summary?.lastAction,
+                eventCounts[pkg] ?: 0,
+                lastActions[pkg],
                 settings[pkg]?.enabled ?: true
             )
         }.sortedWith(compareByDescending<AppRow> { it.todayMs }.thenBy { it.name.lowercase() })
