@@ -2,6 +2,7 @@ package com.example.activitymonitor.repository
 
 import android.content.Context
 import com.example.activitymonitor.db.ActivityEventEntity
+import com.example.activitymonitor.db.ApplicationSessionEntity
 import com.example.activitymonitor.db.BatterySampleEntity
 import com.example.activitymonitor.db.MonitorDatabase
 import kotlinx.coroutines.Dispatchers
