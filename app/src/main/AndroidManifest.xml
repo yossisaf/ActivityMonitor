@@ -20,10 +20,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".VideoPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".monitoring.ScreenCaptureService"
             android:exported="false"
-            android:label="ניטור המכשיר – תיעוד מסך" />
+            android:label="ניטור המכשיר – תיעוד מסך"
+            android:foregroundServiceType="mediaProjection" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
