@@ -3,7 +3,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -25,7 +24,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="מה שחשוב עכשיו למעלה. הגדרות נדירות נשארות סגורות."
+            android:text="הגדרות חשובות למעלה. הגדרות נדירות נשארות סגורות."
             android:textSize="12sp"
             android:textColor="@color/text_secondary" />
 
@@ -50,12 +49,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="9dp"
                 android:gravity="center_vertical">
-
                 <View
                     android:layout_width="9dp"
                     android:layout_height="9dp"
                     android:background="@drawable/bg_permission_dot_ok" />
-
                 <TextView
                     android:id="@+id/accessibilityStatus"
                     android:layout_width="0dp"
@@ -64,7 +61,6 @@
                     android:layout_marginStart="9dp"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
-
                 <Button
                     android:id="@+id/openAccessibility"
                     android:layout_width="wrap_content"
@@ -95,12 +91,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="9dp"
                 android:gravity="center_vertical">
-
                 <View
                     android:layout_width="9dp"
                     android:layout_height="9dp"
                     android:background="@drawable/bg_permission_dot_ok" />
-
                 <TextView
                     android:id="@+id/usageStatus"
                     android:layout_width="0dp"
@@ -109,7 +103,6 @@
                     android:layout_marginStart="9dp"
                     android:textColor="@color/text_primary"
                     android:textStyle="bold" />
-
                 <Button
                     android:id="@+id/openUsage"
                     android:layout_width="wrap_content"
@@ -148,7 +141,6 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -156,7 +148,6 @@
                         android:textSize="17sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary" />
-
                     <TextView
                         android:id="@+id/screenCaptureStatus"
                         android:layout_width="match_parent"
@@ -180,7 +171,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="סמן אפליקציות לתיעוד במסך “אפליקציות”. ההקלטה קלה וללא אודיו."
+                android:text="בחר אפליקציות במסך “אפליקציות”. כל כניסה לאפליקציה מסומנת יוצרת סרטון רציף אחד, מתחילתה ועד היציאה ממנה. אין אודיו."
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
 
@@ -189,7 +180,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="42dp"
                 android:layout_marginTop="7dp"
-                android:text="פתיחת ההקלטות"
+                android:text="פתיחת כל הסרטונים"
                 android:textAllCaps="false" />
         </LinearLayout>
 
@@ -228,13 +219,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="שמירת טקסט שנחשף דרך Accessibility" />
-
             <Switch
                 android:id="@+id/captureSourceSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="שמירת מידע בסיסי על מקור הרכיב" />
-
             <Switch
                 android:id="@+id/encryptTechnicalSwitch"
                 android:layout_width="match_parent"
@@ -263,7 +252,6 @@
                 android:layout_marginTop="5dp"
                 android:hint="מספר ימים (ברירת מחדל: 30)"
                 android:inputType="number" />
-
             <Button
                 android:id="@+id/saveRetention"
                 android:layout_width="match_parent"
@@ -271,7 +259,6 @@
                 android:layout_marginTop="6dp"
                 android:text="שמירת הגדרה"
                 android:textAllCaps="false" />
-
             <Button
                 android:id="@+id/deleteHistory"
                 android:layout_width="match_parent"
@@ -289,7 +276,6 @@
             android:padding="12dp"
             android:background="@drawable/bg_card"
             android:orientation="vertical">
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -297,7 +283,6 @@
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -305,7 +290,6 @@
                 android:text="הנתונים המקומיים מוגנים באמצעות סיסמה."
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary" />
-
             <Button
                 android:id="@+id/changePassword"
                 android:layout_width="match_parent"
