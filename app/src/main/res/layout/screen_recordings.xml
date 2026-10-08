@@ -2,65 +2,76 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingStart="14dp"
-    android:paddingEnd="14dp"
-    android:paddingTop="10dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
     android:orientation="vertical">
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="הקלטות מסך"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary" />
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="הקלטה באיכות נמוכה ובקצב של 1 תמונה לשנייה, ללא אודיו."
-        android:textSize="12sp"
-        android:textColor="@color/text_secondary" />
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:layout_marginTop="9dp"
-        android:gravity="center_vertical">
+        android:layout_height="wrap_content"
+        android:padding="13dp"
+        android:background="@drawable/bg_hero"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="כל הסרטונים"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white" />
 
         <TextView
             android:id="@+id/recordingsSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="אין סרטונים"
+            android:textSize="12sp"
+            android:textColor="#E9EEFF" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="סרטון אחד לכל כניסה. פעולות, לחיצות וגלילות בתוך האפליקציה אינן מפצלות את הסרטון."
+            android:textSize="11sp"
+            android:textColor="#DCE5FF" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="43dp"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/recordingsEmpty"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="0 הקלטות"
-            android:textSize="12sp"
-            android:textColor="@color/text_secondary" />
+            android:text="אין סרטונים עדיין."
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
 
         <Button
             android:id="@+id/deleteAllRecordings"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="39dp"
             android:minWidth="0dp"
             android:text="מחק הכול"
             android:textAllCaps="false"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:textColor="@color/error" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/recordingsEmpty"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingTop="30dp"
-        android:gravity="center"
-        android:text="אין עדיין הקלטות."
-        android:textColor="@color/text_secondary"
-        android:visibility="gone" />
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recordingsRecycler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="3dp"
         android:clipToPadding="false"
-        android:paddingBottom="8dp" />
+        android:paddingBottom="6dp" />
 </LinearLayout>
