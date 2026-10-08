@@ -242,7 +242,7 @@
         android:paddingBottom="16dp"
         android:gravity="center"
         android:text="אין עדיין סרטונים.
-סמן אפליקציות במסך "אפליקציות" והפעל תיעוד מסך."
+סמן אפליקציות במסך &quot;אפליקציות&quot; והפעל תיעוד מסך."
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
         android:visibility="gone" />
