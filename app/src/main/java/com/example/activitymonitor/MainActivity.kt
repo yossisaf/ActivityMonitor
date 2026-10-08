@@ -689,15 +689,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRecordings() {
-        inflateScreen(R.layout.screen_recordings, "הקלטות")
-        val root = File(getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "ActivityMonitor")
-        fun filesNow(): List<File> =
-            root.listFiles { file -> file.isFile && file.extension.equals("mp4", ignoreCase = true) }
-                ?.sortedByDescending { it.lastModified() }
-                ?: emptyList()
+        inflateScreen(R.layout.screen_recordings, "כל הסרטונים")
 
         fun updateList() {
-            val files = filesNow()
+            val files = recordingFiles()
             val totalBytes = files.sumOf { it.length() }
             val sizeText = when {
                 totalBytes < 1024L * 1024L -> "${totalBytes / 1024L} KB"
@@ -705,9 +700,9 @@ class MainActivity : AppCompatActivity() {
             }
             findViewById<TextView>(R.id.recordingsSummary).text =
                 when (files.size) {
-                    0 -> "אין הקלטות"
-                    1 -> "הקלטה אחת • $sizeText"
-                    else -> "${files.size} הקלטות • $sizeText"
+                    0 -> "אין סרטונים"
+                    1 -> "סרטון אחד • $sizeText"
+                    else -> "${files.size} סרטונים • $sizeText"
                 }
             findViewById<TextView>(R.id.recordingsEmpty).visibility =
                 if (files.isEmpty()) View.VISIBLE else View.GONE
@@ -719,18 +714,19 @@ class MainActivity : AppCompatActivity() {
             LinearLayoutManager(this)
 
         findViewById<Button>(R.id.deleteAllRecordings).apply {
-            isEnabled = filesNow().isNotEmpty()
+            isEnabled = recordingFiles().isNotEmpty()
             setOnClickListener {
-                val count = filesNow().size
+                val count = recordingFiles().size
+                if (count == 0) return@setOnClickListener
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("מחיקת כל ההקלטות")
-                    .setMessage("למחוק $count הקלטות? לא ניתן לבטל פעולה זו.")
+                    .setTitle("מחיקת כל הסרטונים")
+                    .setMessage("למחוק $count סרטונים? לא ניתן לבטל פעולה זו.")
                     .setNegativeButton("ביטול", null)
                     .setPositiveButton("מחק הכול") { _, _ ->
-                        filesNow().forEach { it.delete() }
+                        recordingFiles().forEach { it.delete() }
                         updateList()
                         isEnabled = false
-                        Toast.makeText(this@MainActivity, "ההקלטות נמחקו", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "כל הסרטונים נמחקו", Toast.LENGTH_SHORT).show()
                     }
                     .show()
             }
@@ -738,7 +734,6 @@ class MainActivity : AppCompatActivity() {
 
         updateList()
     }
-
     private fun updateBatteryScreenIfVisible(samples: List<BatterySampleEntity>) {
         if (navStack.lastOrNull() != "battery") return
         val latest = samples.firstOrNull() ?: return
