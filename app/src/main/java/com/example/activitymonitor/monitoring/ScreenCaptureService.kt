@@ -7,8 +7,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
-import android.media.projection.MediaProjection
 import android.media.MediaRecorder
+import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Environment
@@ -25,6 +25,8 @@ class ScreenCaptureService : Service() {
     private var virtualDisplay: android.hardware.display.VirtualDisplay? = null
     private var recorder: MediaRecorder? = null
     private var activePackage: String? = null
+    private var recordingPackage: String? = null
+    private var recordingFile: File? = null
     private var running = false
 
     private val projectionCallback = object : MediaProjection.Callback() {
@@ -80,7 +82,9 @@ class ScreenCaptureService : Service() {
         }
     }
 
-    fun setActivePackage(packageName: String?) {
+    // Called for foreground window transitions only. Clicks, typing, scrolling
+    // and other accessibility actions do not split a recording.
+    fun setForegroundPackage(packageName: String?) {
         if (packageName == activePackage) return
         activePackage = packageName
         if (!running) return
@@ -109,11 +113,12 @@ class ScreenCaptureService : Service() {
                 "ActivityMonitor"
             ).apply { mkdirs() }
 
-            val safePackage = packageName.substringAfterLast('.')
-                .replace(Regex("[^A-Za-z0-9_-]"), "_")
-                .take(32)
+            val safePackage = packageName
+                .replace(Regex("[^A-Za-z0-9_.-]"), "_")
+                .take(96)
             val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(root, stamp + "_" + safePackage + ".mp4")
+            // One MP4 is created for one continuous visit to this app.
+            val file = File(root, stamp + "__" + safePackage + ".mp4")
 
             val mr = MediaRecorder()
             @Suppress("DEPRECATION")
@@ -140,11 +145,15 @@ class ScreenCaptureService : Service() {
             mr.start()
             virtualDisplay = display
             recorder = mr
+            recordingPackage = packageName
+            recordingFile = file
         }.onFailure {
             stopRecording()
         }
     }
 
+    // This is the normal end of the app-visit video. It is not called for
+    // individual accessibility actions inside the same package.
     private fun stopRecording() {
         val display = virtualDisplay
         virtualDisplay = null
@@ -152,10 +161,20 @@ class ScreenCaptureService : Service() {
 
         val mr = recorder
         recorder = null
+        val file = recordingFile
+        recordingFile = null
+        recordingPackage = null
+
         if (mr != null) {
             runCatching { mr.stop() }
             runCatching { mr.reset() }
             runCatching { mr.release() }
+        }
+
+        // Avoid leaving empty/corrupt files after an extremely short visit or
+        // an Android interruption of MediaRecorder.
+        if (file != null && (!file.exists() || file.length() < 8_192L)) {
+            runCatching { file.delete() }
         }
     }
 
@@ -184,7 +203,7 @@ class ScreenCaptureService : Service() {
             Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("תיעוד מסך פעיל")
-                .setContentText("מתעד רק אפליקציות שסומנו לתיעוד")
+                .setContentText("סרטון רציף אחד לכל כניסה לאפליקציה שסומנה")
                 .setOngoing(true)
                 .build()
         } else {
@@ -192,7 +211,7 @@ class ScreenCaptureService : Service() {
             Notification.Builder(this)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("תיעוד מסך פעיל")
-                .setContentText("מתעד רק אפליקציות שסומנו לתיעוד")
+                .setContentText("סרטון רציף אחד לכל כניסה לאפליקציה שסומנה")
                 .setOngoing(true)
                 .build()
         }
@@ -224,7 +243,7 @@ class ScreenCaptureService : Service() {
         @Volatile private var instance: ScreenCaptureService? = null
 
         fun setActivePackage(packageName: String?) {
-            instance?.setActivePackage(packageName)
+            instance?.setForegroundPackage(packageName)
         }
 
         fun start(context: Context, resultCode: Int, data: Intent) {
@@ -240,5 +259,7 @@ class ScreenCaptureService : Service() {
         }
 
         fun isRunning(): Boolean = instance?.running == true
+
+        fun currentRecordingPackage(): String? = instance?.recordingPackage
     }
 }
