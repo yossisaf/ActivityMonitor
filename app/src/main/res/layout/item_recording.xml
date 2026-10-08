@@ -2,8 +2,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:padding="12dp"
+    android:layout_marginBottom="7dp"
+    android:minHeight="72dp"
+    android:padding="10dp"
     android:background="@drawable/bg_card"
     android:gravity="center_vertical"
     android:orientation="horizontal">
@@ -19,26 +20,45 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textStyle="bold"
+            android:textSize="15sp"
             android:textColor="@color/text_primary"
             android:maxLines="1"
-            android:ellipsize="middle" />
+            android:ellipsize="end" />
 
         <TextView
             android:id="@+id/recordingMeta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="2dp"
             android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            android:textSize="10sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="סרטון רציף: מהכניסה ועד היציאה"
+            android:textColor="@color/primary"
+            android:textSize="10sp" />
     </LinearLayout>
 
     <Button
+        android:id="@+id/recordingPlay"
+        android:layout_width="70dp"
+        android:layout_height="40dp"
+        android:minWidth="0dp"
+        android:text="▶ צפייה"
+        android:textSize="10sp"
+        android:textAllCaps="false"
+        android:textColor="@color/primary" />
+
+    <Button
         android:id="@+id/recordingDelete"
-        android:layout_width="46dp"
-        android:layout_height="42dp"
+        android:layout_width="42dp"
+        android:layout_height="40dp"
         android:minWidth="0dp"
         android:text="מחק"
-        android:textSize="11sp"
+        android:textSize="9sp"
         android:textAllCaps="false"
         android:textColor="@color/error" />
 </LinearLayout>
