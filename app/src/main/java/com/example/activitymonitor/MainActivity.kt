@@ -706,6 +706,7 @@ class MainActivity : AppCompatActivity() {
                 }
             findViewById<TextView>(R.id.recordingsEmpty).visibility =
                 if (files.isEmpty()) View.VISIBLE else View.GONE
+            findViewById<Button>(R.id.deleteAllRecordings).isEnabled = files.isNotEmpty()
             findViewById<RecyclerView>(R.id.recordingsRecycler).adapter =
                 RecordingAdapter(files) { updateList() }
         }
