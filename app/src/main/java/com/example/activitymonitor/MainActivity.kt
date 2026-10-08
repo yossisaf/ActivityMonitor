@@ -272,24 +272,49 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDashboard() {
-        inflateScreen(R.layout.screen_dashboard, "ראשי")
+        inflateScreen(R.layout.screen_dashboard, "סרטונים")
         findViewById<RecyclerView>(R.id.dashboardRecycler).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = recentAppAdapter
             setHasFixedSize(true)
         }
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
-        findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("search") }
+        findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("apps") }
         findViewById<Button>(R.id.dashboardRecordings).setOnClickListener { render("recordings") }
         refreshDashboard()
         updatePermissionBanner()
+        updateDashboardRecordingStatus()
+    }
+
+    private fun recordingRoot(): File =
+        File(getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "ActivityMonitor")
+
+    private fun recordingFiles(): List<File> =
+        recordingRoot().listFiles { file ->
+            file.isFile && file.extension.equals("mp4", ignoreCase = true)
+        }?.sortedByDescending { it.lastModified() } ?: emptyList()
+
+    private fun updateDashboardRecordingStatus() {
+        val status = rootContent.findViewById<TextView>(R.id.dashboardRecordingStatus) ?: return
+        val active = ScreenCaptureService.currentRecordingPackage()
+        val selectedCount = getScreenRecordingPackages().size
+        val label = active?.let {
+            runCatching {
+                val info = packageManager.getApplicationInfo(it, 0)
+                packageManager.getApplicationLabel(info).toString()
+            }.getOrNull()
+        }
+        status.text = when {
+            active != null && !label.isNullOrBlank() -> "● תיעוד פעיל עכשיו: $label"
+            active != null -> "● תיעוד פעיל עכשיו"
+            selectedCount > 0 -> "תיעוד מוכן • $selectedCount אפליקציות מסומנות"
+            else -> "עדיין לא נבחרה אפליקציה לתיעוד"
+        }
     }
 
     private fun refreshDashboard() {
         lifecycleScope.launch {
             val now = System.currentTimeMillis() + 1
             val today = Formatters.dayStart()
-            val sessions = repository.recentSessions(40)
             val openings = repository.sessionCount(today, now)
             val events = repository.eventCount(today, now)
             val usage = if (usageStats.hasUsageAccess()) {
@@ -297,19 +322,26 @@ class MainActivity : AppCompatActivity() {
             } else {
                 repository.totalDuration(today, now)
             }
+            val files = recordingFiles()
             if (navStack.lastOrNull() != "dashboard") return@launch
 
-            recentAppAdapter.submitList(sessions)
+            val recentVideos = files.take(12)
+            findViewById<RecyclerView>(R.id.dashboardRecycler).adapter =
+                RecordingAdapter(recentVideos) { refreshDashboard() }
             findViewById<TextView>(R.id.dashboardOpenings).text = openings.toString()
             findViewById<TextView>(R.id.dashboardEvents).text = events.toString()
-            findViewById<TextView>(R.id.dashboardUsage).text = Formatters.duration(usage)
+            findViewById<TextView>(R.id.dashboardUsage).text = "שימוש היום: ${Formatters.duration(usage)}"
             findViewById<TextView>(R.id.recentCount).text =
-                if (sessions.isEmpty()) "אין היסטוריה עדיין" else "${sessions.size} פתיחות אחרונות"
+                when (files.size) {
+                    0 -> "אין סרטונים עדיין"
+                    1 -> "סרטון אחד"
+                    else -> "${files.size} סרטונים שמורים"
+                }
             findViewById<TextView>(R.id.recentEmpty).visibility =
-                if (sessions.isEmpty()) View.VISIBLE else View.GONE
+                if (recentVideos.isEmpty()) View.VISIBLE else View.GONE
+            updateDashboardRecordingStatus()
         }
     }
-
     private fun updatePermissionBanner() {
         val banner = rootContent.findViewById<TextView>(R.id.permissionBanner) ?: return
         if (!banner.isAttachedToWindow) return
