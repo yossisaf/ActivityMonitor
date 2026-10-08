@@ -44,7 +44,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="פעילות אחרונה, אפליקציות ונתוני שימוש"
+                android:text="סרטונים רציפים, אפליקציות ופעילות"
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
@@ -88,8 +88,8 @@
             android:minWidth="0dp"
             android:paddingTop="5dp"
             android:paddingBottom="5dp"
-            android:text="⌂
-ראשי"
+            android:text="▶
+סרטונים"
             android:textSize="12sp"
             android:textAllCaps="false"
             android:textColor="@color/nav_text_selector"
