@@ -12,6 +12,7 @@ import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.activitymonitor.R
 import com.example.activitymonitor.VideoPlayerActivity
+import com.example.activitymonitor.monitoring.ScreenCaptureService
 import java.io.File
 import java.util.Locale
 
@@ -37,7 +38,7 @@ class RecordingAdapter(
 
         fun bind(file: File) {
             val appPackage = packageNameFromFile(file)
-            val appName = resolveAppName(appPackage) ?: "סרטון תיעוד מסך"
+            val appName = if (appPackage == ScreenCaptureService.CONTINUOUS_PACKAGE) "הסרטה רציפה" else resolveAppName(appPackage) ?: "סרטון תיעוד מסך"
             name.text = appName
 
             val duration = videoDuration(file)
