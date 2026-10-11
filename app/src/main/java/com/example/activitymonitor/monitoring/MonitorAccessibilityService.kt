@@ -1,110 +1,137 @@
 package com.example.activitymonitor.monitoring
 
 import android.accessibilityservice.AccessibilityService
-import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import com.example.activitymonitor.db.ActivityEventEntity
 import com.example.activitymonitor.db.ApplicationSessionEntity
 import com.example.activitymonitor.db.MonitorDatabase
-import com.example.activitymonitor.repository.CryptoManager
 import com.example.activitymonitor.repository.MonitorRepository
-import com.example.activitymonitor.ui.EventTranslator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.LinkedHashMap
+import java.util.concurrent.Executors
 
+/**
+ * Records app/window transitions only.
+ * It deliberately does not inspect view trees or capture taps, text, scrolling or focus events.
+ */
 class MonitorAccessibilityService : AccessibilityService() {
+    private val serialDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    private val scope = CoroutineScope(SupervisorJob() + serialDispatcher)
     private lateinit var repository: MonitorRepository
-    private lateinit var crypto: CryptoManager
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private var currentPackage: String? = null
     private var currentSessionId: Long? = null
-    private val signatures = object : LinkedHashMap<String, Long>(256, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean = size > 256
-    }
+    private var lastActivityClass: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         repository = MonitorRepository(applicationContext)
-        crypto = CryptoManager(applicationContext)
-        scope.launch { runCatching { repository.closeOpenSessions(System.currentTimeMillis()) } }
+        scope.launch {
+            runCatching { repository.closeOpenSessions(System.currentTimeMillis()) }
+            currentPackage = null
+            currentSessionId = null
+            lastActivityClass = null
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
-        val pkg = event.packageName?.toString() ?: return
-
-        // Recording follows real foreground window transitions, not individual
-        // clicks, text changes or scrolling. One app visit therefore maps to
-        // one continuous MP4.
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            ScreenCaptureService.setActivePackage(if (pkg == packageName) null else pkg)
-        }
-
-        if (!::repository.isInitialized || pkg == packageName) return
-        if (!getSharedPreferences("settings", MODE_PRIVATE).getBoolean("track_$pkg", true)) return
+        if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val foregroundPackage = event.packageName?.toString() ?: return
+        val activityClass = event.className?.toString()
         val now = System.currentTimeMillis()
-        val source = runCatching { event.source }.getOrNull()
-        val password = runCatching { source?.isPassword == true }.getOrDefault(false)
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val captureText = prefs.getBoolean("capture_text", true)
-        val captureSource = prefs.getBoolean("capture_source", true)
-        val encryptTechnical = prefs.getBoolean("encrypt_technical", false)
-        val text = if (password || !captureText) null else event.text.joinToString(" ").trim().ifBlank { null }?.take(500)
-        val contentDescription = if (password || !captureText) null else source?.contentDescription?.toString()?.take(500)
-        val viewId = runCatching { source?.viewIdResourceName }.getOrNull()?.take(250)
-        val className = event.className?.toString() ?: source?.className?.toString()
-        val activity = if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) className else null
-        val signature = "$pkg|${event.eventType}|$className|$text|$contentDescription|$viewId"
-        synchronized(signatures) {
-            val last = signatures[signature]
-            if (last != null && now - last < 250) { source?.recycle(); return }
-            signatures[signature] = now
+
+        val monitoringEnabled = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getBoolean(KEY_MONITORING_ENABLED, true)
+
+        if (!monitoringEnabled || foregroundPackage == packageName) {
+            ScreenCaptureService.setActivePackage(null)
+            scope.launch { closeCurrentSession(now) }
+            return
         }
+
+        // Keep screen recording transitions separate from the database logging preference.
+        ScreenCaptureService.setActivePackage(foregroundPackage)
+
+        if (!::repository.isInitialized) return
+        val shouldTrackApp = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getBoolean("track_$foregroundPackage", true)
+
         scope.launch {
-            try {
-                ensureSession(pkg, now)
-                val sourceInfo = if (captureSource && source != null && event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-                    val summary = sourceSummary(source)
-                    if (encryptTechnical && summary != null) crypto.encrypt(summary) else summary
-                } else null
-                repository.insertEvent(ActivityEventEntity(
-                    timestamp = now,
-                    packageName = pkg,
-                    appName = appName(pkg),
-                    eventType = event.eventType,
-                    eventDescription = EventTranslator.description(event.eventType),
-                    text = text,
-                    contentDescription = contentDescription,
-                    viewId = viewId,
-                    className = className?.take(250),
-                    activityName = activity?.take(250),
-                    sessionId = currentSessionId,
-                    sourceInfo = sourceInfo
-                ))
-            } catch (_: Exception) {
-                // Partial accessibility events and source failures are intentionally ignored.
-            } finally { source?.recycle() }
+            if (!shouldTrackApp) {
+                closeCurrentSession(now)
+                return@launch
+            }
+
+            val isNewApp = currentPackage != foregroundPackage
+            val isNewActivity = activityClass != null && activityClass != lastActivityClass
+            if (!isNewApp && !isNewActivity) return@launch
+
+            if (isNewApp) {
+                closeCurrentSession(now)
+                val appName = appName(foregroundPackage)
+                currentSessionId = MonitorDatabase.get(applicationContext).sessionDao().insert(
+                    ApplicationSessionEntity(
+                        packageName = foregroundPackage,
+                        appName = appName,
+                        startTime = now
+                    )
+                )
+                currentPackage = foregroundPackage
+                lastActivityClass = null
+                repository.insertEvent(
+                    ActivityEventEntity(
+                        timestamp = now,
+                        packageName = foregroundPackage,
+                        appName = appName,
+                        eventType = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                        eventDescription = "נפתחה אפליקציה",
+                        className = activityClass?.take(250),
+                        activityName = activityClass?.take(250),
+                        sessionId = currentSessionId
+                    )
+                )
+            } else if (isNewActivity) {
+                repository.insertEvent(
+                    ActivityEventEntity(
+                        timestamp = now,
+                        packageName = foregroundPackage,
+                        appName = appName(foregroundPackage),
+                        eventType = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                        eventDescription = "מעבר למסך באפליקציה",
+                        className = activityClass?.take(250),
+                        activityName = activityClass?.take(250),
+                        sessionId = currentSessionId
+                    )
+                )
+            }
+
+            lastActivityClass = activityClass
         }
     }
 
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        if (::repository.isInitialized) kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { runCatching { repository.closeOpenSessions(System.currentTimeMillis()) } }
+        if (::repository.isInitialized) {
+            scope.launch { runCatching { closeCurrentSession(System.currentTimeMillis()) } }
+        }
         scope.cancel()
+        serialDispatcher.close()
         super.onDestroy()
     }
 
-    private suspend fun ensureSession(pkg: String, now: Long) {
-        if (currentPackage == pkg && currentSessionId != null) return
-        if (currentSessionId != null) repository.closeOpenSessions(now)
-        currentSessionId = MonitorDatabase.get(applicationContext).sessionDao().insert(ApplicationSessionEntity(packageName = pkg, appName = appName(pkg), startTime = now))
-        currentPackage = pkg
+    private suspend fun closeCurrentSession(now: Long) {
+        val id = currentSessionId
+        if (id != null && ::repository.isInitialized) {
+            runCatching { MonitorDatabase.get(applicationContext).sessionDao().close(id, now) }
+        }
+        currentSessionId = null
+        currentPackage = null
+        lastActivityClass = null
     }
 
     private fun appName(pkg: String): String = runCatching {
@@ -112,8 +139,8 @@ class MonitorAccessibilityService : AccessibilityService() {
         packageManager.getApplicationLabel(info).toString().ifBlank { pkg }
     }.getOrElse { pkg }
 
-    private fun sourceSummary(node: AccessibilityNodeInfo): String? = runCatching {
-        val rect = Rect(); node.getBoundsInScreen(rect)
-        "סוג=${node.className ?: "לא זמין"}; גבולות=${rect.left},${rect.top},${rect.right},${rect.bottom}"
-    }.getOrNull()
+    companion object {
+        private const val PREFS = "settings"
+        private const val KEY_MONITORING_ENABLED = "monitoring_enabled"
+    }
 }
