@@ -60,7 +60,7 @@
         android:layout_height="wrap_content"
         android:paddingTop="34dp"
         android:gravity="center"
-        android:text="אין פעולות שנקלטו באפליקציה הזו בטווח שנבחר."
+        android:text="אין פתיחות או מעברים מרכזיים באפליקציה הזו בטווח שנבחר."
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
         android:visibility="gone" />
