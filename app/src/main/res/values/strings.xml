@@ -2,4 +2,5 @@
 <resources>
     <string name="accessibility_service_description">רושם פתיחת אפליקציות ומעברים בין מסכים בלבד; אינו קורא לחיצות, הקלדות או גלילות.</string>
     <string name="monitor_tile_label">ניטור</string>
+    <string name="background_notification_title">התראות ניטור</string>
 </resources>
