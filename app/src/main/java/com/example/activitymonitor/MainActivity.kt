@@ -71,10 +71,13 @@ class MainActivity : AppCompatActivity() {
     private var searchPackageFilter: String? = null
     private var searchEventTypeFilter: Int? = null
     private var pendingRecordPackage: String? = null
+    private var pendingTileStart = false
+    private var pendingContinuousStart = false
     private val screenCaptureRequestCode = 7401
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingTileStart = intent?.action == ACTION_START_FROM_TILE
         setContentView(R.layout.activity_main)
         repository = (application as MonitorApplication).repository
         usageStats = UsageStatsRepository(this)
@@ -91,6 +94,15 @@ class MainActivity : AppCompatActivity() {
             }
         })
         showPasswordGate()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == ACTION_START_FROM_TILE) {
+            pendingTileStart = true
+            continuePendingTileStart()
+        }
     }
 
     override fun onResume() {
@@ -162,6 +174,21 @@ class MainActivity : AppCompatActivity() {
         setupAdapters()
         setupCollectors()
         render("dashboard")
+        continuePendingTileStart()
+    }
+
+    private fun continuePendingTileStart() {
+        if (!pendingTileStart || !mainUiInitialized) return
+        pendingTileStart = false
+        val enabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
+        if (!enabled || ScreenCaptureService.isRunning()) return
+        val continuous = getSharedPreferences("screen_recording", MODE_PRIVATE)
+            .getBoolean("continuous_recording", false)
+        if (continuous || getScreenRecordingPackages().isNotEmpty()) {
+            requestScreenCapture()
+        } else {
+            Toast.makeText(this, "הניטור הופעל. בחר אפליקציות לתיעוד או הפעל הסרטה רציפה.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun maybePromptUsageAccess() {
@@ -280,6 +307,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
         findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("apps") }
         findViewById<Button>(R.id.dashboardRecordings).setOnClickListener { render("recordings") }
+        val monitorSwitch = findViewById<Switch>(R.id.monitoringToggle)
+        monitorSwitch.isChecked = getSharedPreferences("settings", MODE_PRIVATE)
+            .getBoolean("monitoring_enabled", true)
+        monitorSwitch.setOnCheckedChangeListener { _, enabled -> setMonitoringEnabled(enabled) }
         refreshDashboard()
         updatePermissionBanner()
         updateDashboardRecordingStatus()
@@ -297,13 +328,19 @@ class MainActivity : AppCompatActivity() {
         val status = rootContent.findViewById<TextView>(R.id.dashboardRecordingStatus) ?: return
         val active = ScreenCaptureService.currentRecordingPackage()
         val selectedCount = getScreenRecordingPackages().size
+        if (ScreenCaptureService.isRunning() && ScreenCaptureService.isContinuousMode()) {
+            status.text = "● הסרטה רציפה פעילה עד לעצירה ידנית"
+            return
+        }
         val label = active?.let {
             runCatching {
                 val info = packageManager.getApplicationInfo(it, 0)
                 packageManager.getApplicationLabel(info).toString()
             }.getOrNull()
         }
+        val monitorEnabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
         status.text = when {
+            !monitorEnabled -> "הניטור מושהה • אפשר להפעיל מאריח הניטור"
             active != null && !label.isNullOrBlank() -> "● תיעוד פעיל עכשיו: $label"
             active != null -> "● תיעוד פעיל עכשיו"
             selectedCount > 0 -> "תיעוד מוכן • $selectedCount אפליקציות מסומנות"
@@ -347,11 +384,18 @@ class MainActivity : AppCompatActivity() {
         if (!banner.isAttachedToWindow) return
         val a = accessibilityEnabled()
         val u = usageStats.hasUsageAccess()
+        val monitorEnabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
         val statusTitle = findViewById<TextView>(R.id.dashboardStatusTitle)
         val hint = findViewById<TextView>(R.id.permissionHint)
         val dot = findViewById<View>(R.id.permissionDot)
 
         when {
+            !monitorEnabled -> {
+                statusTitle?.text = "הניטור מושהה"
+                banner.text = "רישום פתיחות אפליקציה הושהה."
+                hint?.text = "הפעל את המתג כאן או את אריח הניטור בוילון Android."
+                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
+            }
             a && u -> {
                 statusTitle?.text = "הניטור פעיל"
                 banner.text = "שירות הנגישות ונתוני השימוש זמינים."
@@ -550,11 +594,42 @@ class MainActivity : AppCompatActivity() {
             advanced.visibility = if (open) View.VISIBLE else View.GONE
             advancedToggle.text = if (open) "אפשרויות מתקדמות  ↓" else "אפשרויות מתקדמות  ›"
         }
-        findViewById<Button>(R.id.startScreenCapture).setOnClickListener { requestScreenCapture() }
+        findViewById<Button>(R.id.startScreenCapture).setOnClickListener {
+            if (!ScreenCaptureService.isRunning()) requestScreenCapture()
+            else Toast.makeText(this, "תיעוד המסך כבר פעיל", Toast.LENGTH_SHORT).show()
+        }
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        findViewById<Switch>(R.id.captureTextSwitch).apply { isChecked = prefs.getBoolean("capture_text", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_text", c).apply() } }
-        findViewById<Switch>(R.id.captureSourceSwitch).apply { isChecked = prefs.getBoolean("capture_source", true); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("capture_source", c).apply() } }
-        findViewById<Switch>(R.id.encryptTechnicalSwitch).apply { isChecked = prefs.getBoolean("encrypt_technical", false); setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("encrypt_technical", c).apply() } }
+        val screenPrefs = getSharedPreferences("screen_recording", MODE_PRIVATE)
+        findViewById<Switch>(R.id.continuousRecordingSwitch).apply {
+            isChecked = screenPrefs.getBoolean("continuous_recording", false)
+            setOnCheckedChangeListener { _, enabled ->
+                screenPrefs.edit().putBoolean("continuous_recording", enabled).apply()
+                if (enabled) {
+                    prefs.edit().putBoolean("monitoring_enabled", true).apply()
+                    MonitorTileService.refreshTile(this@MainActivity)
+                    pendingContinuousStart = true
+                    if (ScreenCaptureService.isRunning()) {
+                        ScreenCaptureService.setContinuousMode(true)
+                        pendingContinuousStart = false
+                    } else {
+                        requestScreenCapture()
+                    }
+                } else {
+                    pendingContinuousStart = false
+                    ScreenCaptureService.setContinuousMode(false)
+                }
+                updatePermissionScreen()
+            }
+        }
+        findViewById<Button>(R.id.stopScreenCapture).setOnClickListener {
+            screenPrefs.edit().putBoolean("continuous_recording", false).apply()
+            pendingContinuousStart = false
+            ScreenCaptureService.stop(this)
+            findViewById<Switch>(R.id.continuousRecordingSwitch).isChecked = false
+            MonitorTileService.refreshTile(this)
+            updatePermissionScreen()
+            Toast.makeText(this, "ההסרטה נעצרה", Toast.LENGTH_SHORT).show()
+        }
         val retention = findViewById<EditText>(R.id.retentionDays); retention.setText(prefs.getInt("retention_days", 30).toString())
         findViewById<Button>(R.id.saveRetention).setOnClickListener {
             val days = retention.text.toString().toIntOrNull()?.coerceIn(1, 3650) ?: 30
@@ -617,14 +692,25 @@ class MainActivity : AppCompatActivity() {
         val a = accessibilityEnabled(); val u = usageStats.hasUsageAccess()
         findViewById<TextView>(R.id.accessibilityStatus).text = if (a) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
         findViewById<TextView>(R.id.usageStatus).text = if (u) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
-        findViewById<TextView>(R.id.accessibilityDetails).text = "נדרש כדי לקבל אירועי ממשק שהמערכת ואפליקציות המקור חושפות ל־Accessibility. מידע שלא נחשף לא יוכל להיקלט."
+        findViewById<TextView>(R.id.accessibilityDetails).text = "רישום פתיחה וסיום של אפליקציות ומעבר למסך מרכזי בלבד. לחיצות, הקלדות וגלילות אינן נשמרות."
         findViewById<TextView>(R.id.usageDetails).text = "משמש למדידת זמן שימוש באפליקציות דרך UsageStatsManager. Android עשויה להגביל או לשנות את הנתונים הזמינים."
         val captureEnabled = ScreenCaptureService.isRunning()
-        findViewById<TextView>(R.id.screenCaptureStatus).text =
-            if (captureEnabled) "תיעוד מסך: פעיל" else "תיעוד מסך: כבוי"
-        findViewById<TextView>(R.id.screenCaptureDetails).text =
-            if (captureEnabled) "הקלטה תתחיל רק כאשר אפליקציה שסומנה לתיעוד נמצאת בחזית."
-            else "סמן אפליקציות במסך \"אפליקציות\" והפעל את תיעוד המסך. Android יציג בקשת אישור."
+        val continuousPref = getSharedPreferences("screen_recording", MODE_PRIVATE)
+            .getBoolean("continuous_recording", false)
+        findViewById<Switch>(R.id.continuousRecordingSwitch)?.let { toggle ->
+            if (toggle.isChecked != continuousPref) toggle.isChecked = continuousPref
+        }
+        findViewById<TextView>(R.id.screenCaptureStatus).text = when {
+            !getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true) -> "מצב ניטור: מושהה"
+            captureEnabled && ScreenCaptureService.isContinuousMode() -> "הסרטה רציפה פעילה"
+            captureEnabled -> "תיעוד לפי אפליקציות: פעיל"
+            else -> "תיעוד מסך: כבוי"
+        }
+        findViewById<TextView>(R.id.screenCaptureDetails).text = when {
+            captureEnabled && ScreenCaptureService.isContinuousMode() -> "המסך מוקלט ברצף עד לחיצה על עצירת הסרטה. Android מציג התראה קבועה בזמן ההקלטה."
+            captureEnabled -> "מצב לפי אפליקציות יוצר סרטון אחד לכל כניסה לאפליקציה שסומנה."
+            else -> "בחר אפליקציות לתיעוד, או הפעל הסרטה רציפה עד לעצירה ידנית. Android יבקש אישור לפני תחילת הצילום."
+        }
     }
 
     private fun getScreenRecordingPackages(): MutableSet<String> {
@@ -657,6 +743,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setMonitoringEnabled(enabled: Boolean) {
+        getSharedPreferences("settings", MODE_PRIVATE).edit()
+            .putBoolean("monitoring_enabled", enabled).apply()
+        MonitorTileService.refreshTile(this)
+        if (!enabled) {
+            getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+                .putBoolean("continuous_recording", false).apply()
+            pendingContinuousStart = false
+            ScreenCaptureService.stop(this)
+        } else if (!ScreenCaptureService.isRunning()) {
+            val continuous = getSharedPreferences("screen_recording", MODE_PRIVATE)
+                .getBoolean("continuous_recording", false)
+            if (continuous || getScreenRecordingPackages().isNotEmpty()) requestScreenCapture()
+        }
+        updateDashboardRecordingStatus()
+        updatePermissionBanner()
+        if (navStack.lastOrNull() == "permissions") updatePermissionScreen()
+    }
+
     private fun requestScreenCapture() {
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         runCatching {
@@ -672,7 +777,10 @@ class MainActivity : AppCompatActivity() {
         if (requestCode != screenCaptureRequestCode) return
         if (resultCode == RESULT_OK && data != null) {
             ScreenCaptureService.start(this, resultCode, data)
-            Toast.makeText(this, "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
+            if (pendingContinuousStart) ScreenCaptureService.setContinuousMode(true)
+            pendingContinuousStart = false
+            MonitorTileService.refreshTile(this)
+            Toast.makeText(this, if (ScreenCaptureService.isContinuousMode()) "ההסרטה הרציפה החלה" else "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
         } else {
             pendingRecordPackage?.let {
                 val selected = getScreenRecordingPackages()
@@ -682,6 +790,12 @@ class MainActivity : AppCompatActivity() {
                     .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
                     .apply()
             }
+            if (pendingContinuousStart) {
+                getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+                    .putBoolean("continuous_recording", false).apply()
+                rootContent.findViewById<Switch>(R.id.continuousRecordingSwitch)?.isChecked = false
+            }
+            pendingContinuousStart = false
             Toast.makeText(this, "תיעוד המסך לא הופעל", Toast.LENGTH_SHORT).show()
         }
         pendingRecordPackage = null
@@ -786,6 +900,10 @@ class MainActivity : AppCompatActivity() {
             meta.text = if (events.isEmpty()) "אין פעולות שנקלטו בטווח" else "${events.size} פעולות • החדשה ביותר מוצגת ראשונה"
             empty.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
         }
+    }
+
+    companion object {
+        const val ACTION_START_FROM_TILE = "com.example.activitymonitor.action.START_FROM_TILE"
     }
 
     private fun accessibilityEnabled(): Boolean {
