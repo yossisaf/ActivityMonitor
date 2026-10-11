@@ -107,7 +107,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (mainUiInitialized && navStack.lastOrNull() == "dashboard") refreshDashboard()
+        if (mainUiInitialized && navStack.lastOrNull() == "dashboard") {
+            val toggle = rootContent.findViewById<Switch>(R.id.monitoringToggle)
+            if (toggle != null) {
+                toggle.setOnCheckedChangeListener(null)
+                toggle.isChecked = getSharedPreferences("settings", MODE_PRIVATE)
+                    .getBoolean("monitoring_enabled", true)
+                toggle.setOnCheckedChangeListener { _, enabled -> setMonitoringEnabled(enabled) }
+            }
+            refreshDashboard()
+            updateDashboardRecordingStatus()
+        }
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
             "dashboard" -> updatePermissionBanner()
@@ -562,8 +572,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun chooseSearchType(input: EditText, range: TextView) {
-        val types = listOf(null, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED, android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SCROLLED)
-        val labels = listOf("כל הפעולות", "לחיצה על רכיב", "בחירת רכיב", "שינוי טקסט", "מעבר למסך", "שינוי תוכן המסך", "גלילה")
+        val types = listOf(null, android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+        val labels = listOf("כל האירועים המרכזיים", "פתיחת אפליקציה או מעבר למסך")
         AlertDialog.Builder(this).setTitle("סינון לפי סוג פעולה").setItems(labels.toTypedArray()) { _, which ->
             searchEventTypeFilter = types[which]; runSearch(input, range)
         }.show()
@@ -726,6 +736,9 @@ class MainActivity : AppCompatActivity() {
                 .edit()
                 .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
                 .apply()
+            getSharedPreferences("settings", MODE_PRIVATE).edit()
+                .putBoolean("monitoring_enabled", true).apply()
+            MonitorTileService.refreshTile(this)
             if (!ScreenCaptureService.isRunning()) {
                 pendingRecordPackage = packageName
                 requestScreenCapture()
@@ -736,7 +749,7 @@ class MainActivity : AppCompatActivity() {
                 .edit()
                 .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
                 .apply()
-            if (ScreenCaptureService.isRunning()) {
+            if (ScreenCaptureService.isRunning() && !ScreenCaptureService.isContinuousMode()) {
                 if (selected.isEmpty()) ScreenCaptureService.stop(this)
                 else ScreenCaptureService.setActivePackage(null)
             }
