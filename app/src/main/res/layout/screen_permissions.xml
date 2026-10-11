@@ -175,6 +175,23 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
 
+            <Switch
+                android:id="@+id/continuousRecordingSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="5dp"
+                android:text="הסרטה רציפה עד לעצירה ידנית"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/stopScreenCapture"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_marginTop="2dp"
+                android:text="עצירת הסרטה"
+                android:textAllCaps="false"
+                android:textColor="@color/error" />
+
             <Button
                 android:id="@+id/openRecordings"
                 android:layout_width="match_parent"
@@ -209,26 +226,18 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="פרטיות ואיסוף"
+                android:text="רישום מצומצם"
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
 
-            <Switch
-                android:id="@+id/captureTextSwitch"
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="שמירת טקסט שנחשף דרך Accessibility" />
-            <Switch
-                android:id="@+id/captureSourceSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="שמירת מידע בסיסי על מקור הרכיב" />
-            <Switch
-                android:id="@+id/encryptTechnicalSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="הצפנת מידע טכני של מקור הרכיב" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="נשמרים פתיחות אפליקציה ומעברים למסכים מרכזיים בלבד. לא נשמרות לחיצות, טקסטים או גלילות."
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
 
             <View
                 android:layout_width="match_parent"
