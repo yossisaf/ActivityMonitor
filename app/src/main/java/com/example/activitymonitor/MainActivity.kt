@@ -4,6 +4,11 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.media.projection.MediaProjectionManager
@@ -72,12 +77,15 @@ class MainActivity : AppCompatActivity() {
     private var searchEventTypeFilter: Int? = null
     private var pendingRecordPackage: String? = null
     private var pendingTileStart = false
+    private var pendingTileStop = false
+    private var tileStopGatePassed = false
     private var pendingContinuousStart = false
     private val screenCaptureRequestCode = 7401
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingTileStart = intent?.action == ACTION_START_FROM_TILE
+        pendingTileStop = intent?.action == ACTION_STOP_FROM_TILE
         setContentView(R.layout.activity_main)
         repository = (application as MonitorApplication).repository
         usageStats = UsageStatsRepository(this)
@@ -99,9 +107,15 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == ACTION_START_FROM_TILE) {
-            pendingTileStart = true
-            continuePendingTileStart()
+        when (intent.action) {
+            ACTION_START_FROM_TILE -> {
+                pendingTileStart = true
+                continuePendingTileStart()
+            }
+            ACTION_STOP_FROM_TILE -> {
+                pendingTileStop = true
+                continuePendingTileStop()
+            }
         }
     }
 
@@ -120,7 +134,14 @@ class MainActivity : AppCompatActivity() {
         }
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
-            "dashboard" -> updatePermissionBanner()
+            "dashboard" -> {
+                updatePermissionBanner()
+                updateBackgroundWarning()
+            }
+        }
+        if (mainUiInitialized) {
+            updateBackgroundPermissionStatus()
+            maybePromptBackgroundSetup()
         }
     }
 
@@ -152,6 +173,7 @@ class MainActivity : AppCompatActivity() {
                     first != second -> showPasswordError(error, "הסיסמאות אינן זהות.")
                     else -> {
                         passwordManager.setPassword(first)
+                        tileStopGatePassed = pendingTileStop
                         initMainUi()
                     }
                 }
@@ -162,8 +184,10 @@ class MainActivity : AppCompatActivity() {
             confirm.visibility = View.GONE
             action.text = "כניסה"
             action.setOnClickListener {
-                if (passwordManager.verify(input.text.toString())) initMainUi()
-                else showPasswordError(error, "הסיסמה שגויה.")
+                if (passwordManager.verify(input.text.toString())) {
+                    tileStopGatePassed = pendingTileStop
+                    initMainUi()
+                } else showPasswordError(error, "הסיסמה שגויה.")
             }
         }
     }
@@ -185,6 +209,8 @@ class MainActivity : AppCompatActivity() {
         setupCollectors()
         render("dashboard")
         continuePendingTileStart()
+        continuePendingTileStop()
+        maybePromptBackgroundSetup()
     }
 
     private fun continuePendingTileStart() {
@@ -199,6 +225,44 @@ class MainActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "הניטור הופעל. בחר אפליקציות לתיעוד או הפעל הסרטה רציפה.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun continuePendingTileStop() {
+        if (!pendingTileStop || !mainUiInitialized) return
+        pendingTileStop = false
+
+        if (tileStopGatePassed) {
+            tileStopGatePassed = false
+            setMonitoringEnabled(false)
+            Toast.makeText(this, "הניטור נעצר לאחר אימות סיסמה", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val passwordInput = EditText(this).apply {
+            hint = "סיסמה"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("אימות לפני עצירת הניטור")
+            .setMessage("כדי למנוע כיבוי בטעות או בידי אדם אחר, יש להזין את סיסמת האפליקציה.")
+            .setView(passwordInput)
+            .setNegativeButton("ביטול") { _, _ -> MonitorTileService.refreshTile(this) }
+            .setPositiveButton("אימות", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (passwordManager.verify(passwordInput.text.toString())) {
+                    dialog.dismiss()
+                    setMonitoringEnabled(false)
+                    Toast.makeText(this, "הניטור נעצר", Toast.LENGTH_SHORT).show()
+                } else {
+                    passwordInput.error = "הסיסמה שגויה"
+                    MonitorTileService.refreshTile(this)
+                }
+            }
+        }
+        dialog.setOnCancelListener { MonitorTileService.refreshTile(this) }
+        dialog.show()
     }
 
     private fun maybePromptUsageAccess() {
