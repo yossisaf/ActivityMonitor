@@ -484,6 +484,7 @@ class MainActivity : AppCompatActivity() {
         refreshDashboard()
         updatePermissionBanner()
         updateDashboardRecordingStatus()
+        updateBackgroundWarning()
     }
 
     private fun recordingRoot(): File =
@@ -761,6 +762,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
         findViewById<Button>(R.id.changePassword).setOnClickListener { showChangePasswordDialog() }
         findViewById<Button>(R.id.openRecordings).setOnClickListener { render("recordings") }
+        findViewById<Button>(R.id.backgroundSetup).setOnClickListener { openBackgroundSetup() }
         val advancedToggle = findViewById<Button>(R.id.advancedToggle)
         val advanced = findViewById<View>(R.id.advancedContainer)
         advancedToggle.setOnClickListener {
@@ -885,6 +887,7 @@ class MainActivity : AppCompatActivity() {
             captureEnabled -> "מצב לפי אפליקציות יוצר סרטון אחד לכל כניסה לאפליקציה שסומנה."
             else -> "בחר אפליקציות לתיעוד, או הפעל הסרטה רציפה עד לעצירה ידנית. Android יבקש אישור לפני תחילת הצילום."
         }
+        updateBackgroundPermissionStatus()
     }
 
     private fun getScreenRecordingPackages(): MutableSet<String> {
