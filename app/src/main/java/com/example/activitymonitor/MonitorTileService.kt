@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import com.example.activitymonitor.monitoring.ScreenCaptureService
 
 class MonitorTileService : TileService() {
     override fun onStartListening() {
@@ -15,20 +14,24 @@ class MonitorTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val settings = getSharedPreferences("settings", MODE_PRIVATE)
-        val currentlyEnabled = settings.getBoolean("monitoring_enabled", true)
-        val nextEnabled = !currentlyEnabled
-        settings.edit().putBoolean("monitoring_enabled", nextEnabled).apply()
+        val enabled = getSharedPreferences("settings", MODE_PRIVATE)
+            .getBoolean("monitoring_enabled", true)
 
-        if (!nextEnabled) {
-            getSharedPreferences("screen_recording", MODE_PRIVATE)
-                .edit().putBoolean("continuous_recording", false).apply()
-            ScreenCaptureService.stop(this)
-            syncTile(false)
+        if (enabled) {
+            // Never disable monitoring directly from the shade. Authentication
+            // is performed by MainActivity before the setting is changed.
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = MainActivity.ACTION_STOP_FROM_TILE
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivityAndCollapse(intent)
             return
         }
 
+        getSharedPreferences("settings", MODE_PRIVATE)
+            .edit().putBoolean("monitoring_enabled", true).apply()
         syncTile(true)
+
         val intent = Intent(this, MainActivity::class.java).apply {
             action = MainActivity.ACTION_START_FROM_TILE
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
