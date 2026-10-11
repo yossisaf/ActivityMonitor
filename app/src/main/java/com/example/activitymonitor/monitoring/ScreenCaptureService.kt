@@ -295,6 +295,7 @@ class ScreenCaptureService : Service() {
 
         fun isRunning(): Boolean = instance?.running == true
         fun currentRecordingPackage(): String? = instance?.recordingPackage
+        fun currentRecordingPath(): String? = instance?.recordingFile?.absolutePath
         fun isContinuousMode(): Boolean = instance?.continuousMode == true
     }
 }
