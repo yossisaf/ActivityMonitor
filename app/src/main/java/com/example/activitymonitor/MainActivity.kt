@@ -357,7 +357,7 @@ class MainActivity : AppCompatActivity() {
             !monitorEnabled -> "הניטור מושהה • אפשר להפעיל מאריח הניטור"
             active != null && !label.isNullOrBlank() -> "● תיעוד פעיל עכשיו: $label"
             active != null -> "● תיעוד פעיל עכשיו"
-            selectedCount > 0 -> "תיעוד מוכן • $selectedCount אפליקציות מסומנות"
+            selectedCount > 0 -> "תיעוד כבוי • $selectedCount אפליקציות מסומנות"
             else -> "עדיין לא נבחרה אפליקציה לתיעוד"
         }
     }
@@ -412,14 +412,14 @@ class MainActivity : AppCompatActivity() {
             }
             a && u -> {
                 statusTitle?.text = "הניטור פעיל"
-                banner.text = "שירות הנגישות ונתוני השימוש זמינים."
-                hint?.text = "הפתיחות והפעולות האחרונות ממשיכות להיאסף."
+                banner.text = "מעברי אפליקציה ומסכים מרכזיים נרשמים."
+                hint?.text = "לא נשמרות לחיצות, הקלדות או גלילות. הסרטונים מוצגים למטה."
                 dot?.setBackgroundResource(R.drawable.bg_permission_dot_ok)
             }
             a -> {
                 statusTitle?.text = "הניטור פעיל חלקית"
                 banner.text = "שירות הנגישות פעיל, אבל גישה לנתוני שימוש חסרה."
-                hint?.text = "הפעל אותה בהגדרות כדי לקבל גם זמני שימוש."
+                hint?.text = "פתיחות ומעברים מרכזיים נרשמים; הפעל גישה לנתוני שימוש עבור סטטיסטיקות זמן."
                 dot?.setBackgroundResource(R.drawable.bg_permission_dot)
             }
             u -> {
@@ -797,7 +797,7 @@ class MainActivity : AppCompatActivity() {
             if (pendingContinuousStart) ScreenCaptureService.setContinuousMode(true)
             pendingContinuousStart = false
             MonitorTileService.refreshTile(this)
-            Toast.makeText(this, if (ScreenCaptureService.isContinuousMode()) "ההסרטה הרציפה החלה" else "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (getSharedPreferences("screen_recording", MODE_PRIVATE).getBoolean("continuous_recording", false)) "ההסרטה הרציפה החלה" else "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
         } else {
             pendingRecordPackage?.let {
                 val selected = getScreenRecordingPackages()
@@ -903,7 +903,7 @@ class MainActivity : AppCompatActivity() {
         inflateScreen(R.layout.screen_app_timeline, "פעילות")
         iconCache.get(packageName)?.let { findViewById<ImageView>(R.id.appTimelineIcon).setImageDrawable(it) }
         findViewById<TextView>(R.id.appTimelineTitle).text = name
-        findViewById<TextView>(R.id.appTimelineSubtitle).text = "הפעולות שנקלטו ב־30 הימים האחרונים"
+        findViewById<TextView>(R.id.appTimelineSubtitle).text = "פתיחות ומעברים בין מסכים מרכזיים"
         val list = findViewById<RecyclerView>(R.id.appTimelineRecycler)
         val empty = findViewById<TextView>(R.id.appTimelineEmpty)
         val meta = findViewById<TextView>(R.id.appTimelineMeta)
@@ -914,7 +914,7 @@ class MainActivity : AppCompatActivity() {
             val events = viewModel.packageEvents(packageName, Formatters.dayStart(-29), System.currentTimeMillis() + 1)
             if (navStack.lastOrNull() != "apptimeline:$packageName") return@launch
             adapter.submitList(events)
-            meta.text = if (events.isEmpty()) "אין פעולות שנקלטו בטווח" else "${events.size} פעולות • החדשה ביותר מוצגת ראשונה"
+            meta.text = if (events.isEmpty()) "אין מעברים שנרשמו בטווח" else "${events.size} מעברים • החדש ביותר מוצג ראשון"
             empty.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
         }
     }
