@@ -51,7 +51,7 @@ class MonitorTileService : TileService() {
         fun refreshTile(context: android.content.Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 runCatching {
-                    requestListeningState(context, ComponentName(context, MonitorTileService::class.java))
+                    TileService.requestListeningState(context, ComponentName(context, MonitorTileService::class.java))
                 }
             }
         }
