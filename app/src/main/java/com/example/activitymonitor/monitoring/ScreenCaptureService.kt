@@ -28,6 +28,7 @@ class ScreenCaptureService : Service() {
     private var recordingPackage: String? = null
     private var recordingFile: File? = null
     private var running = false
+    private var continuousMode = false
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -73,21 +74,32 @@ class ScreenCaptureService : Service() {
                 ?: error("MediaProjection unavailable")
             projection?.registerCallback(projectionCallback, null)
             running = true
+            continuousMode = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(KEY_CONTINUOUS_MODE, false)
 
-            val pkg = activePackage
-            if (pkg != null && selectedPackages().contains(pkg)) startRecording(pkg)
+            if (continuousMode) {
+                startRecording(CONTINUOUS_PACKAGE, allowUnselected = true)
+            } else {
+                activePackage?.takeIf { selectedPackages().contains(it) }?.let { startRecording(it) }
+            }
         }.onFailure {
             releaseProjection()
             stopSelf()
         }
     }
 
-    // Called for foreground window transitions only. Clicks, typing, scrolling
-    // and other accessibility actions do not split a recording.
+    // Called only on foreground window transitions. A continuous session ignores
+    // app transitions; normal mode creates one file per selected-app visit.
     fun setForegroundPackage(packageName: String?) {
         if (packageName == activePackage) return
         activePackage = packageName
         if (!running) return
+
+        if (continuousMode) return
+        if (!getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)) {
+            stopRecording()
+            return
+        }
 
         if (packageName != null && selectedPackages().contains(packageName)) {
             startRecording(packageName)
@@ -96,8 +108,27 @@ class ScreenCaptureService : Service() {
         }
     }
 
-    private fun startRecording(packageName: String) {
-        if (!running || recorder != null || !selectedPackages().contains(packageName)) return
+    fun setContinuousMode(enabled: Boolean) {
+        if (continuousMode == enabled) return
+        continuousMode = enabled
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+            .edit().putBoolean(KEY_CONTINUOUS_MODE, enabled).apply()
+        if (!running) return
+
+        stopRecording()
+        if (enabled) {
+            startRecording(CONTINUOUS_PACKAGE, allowUnselected = true)
+        } else if (
+            getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
+        ) {
+            activePackage?.takeIf { selectedPackages().contains(it) }?.let { startRecording(it) }
+        }
+    }
+
+    private fun startRecording(packageName: String, allowUnselected: Boolean = false) {
+        if (!running || recorder != null) return
+        if (!allowUnselected && !selectedPackages().contains(packageName)) return
+        if (!getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)) return
 
         runCatching {
             val metrics = resources.displayMetrics
@@ -113,12 +144,9 @@ class ScreenCaptureService : Service() {
                 "ActivityMonitor"
             ).apply { mkdirs() }
 
-            val safePackage = packageName
-                .replace(Regex("[^A-Za-z0-9_.-]"), "_")
-                .take(96)
+            val safePackage = packageName.replace(Regex("[^A-Za-z0-9_.-]"), "_").take(96)
             val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            // One MP4 is created for one continuous visit to this app.
-            val file = File(root, stamp + "__" + safePackage + ".mp4")
+            val file = File(root, "${stamp}__${safePackage}.mp4")
 
             val mr = MediaRecorder()
             @Suppress("DEPRECATION")
@@ -152,8 +180,6 @@ class ScreenCaptureService : Service() {
         }
     }
 
-    // This is the normal end of the app-visit video. It is not called for
-    // individual accessibility actions inside the same package.
     private fun stopRecording() {
         val display = virtualDisplay
         virtualDisplay = null
@@ -170,9 +196,6 @@ class ScreenCaptureService : Service() {
             runCatching { mr.reset() }
             runCatching { mr.release() }
         }
-
-        // Avoid leaving empty/corrupt files after an extremely short visit or
-        // an Android interruption of MediaRecorder.
         if (file != null && (!file.exists() || file.length() < 8_192L)) {
             runCatching { file.delete() }
         }
@@ -198,12 +221,17 @@ class ScreenCaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildNotification(): Notification =
-        if (Build.VERSION.SDK_INT >= 26) {
+    private fun buildNotification(): Notification {
+        val text = if (continuousMode ||
+            getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_CONTINUOUS_MODE, false)
+        ) "הסרטה רציפה פעילה עד עצירה ידנית"
+        else "סרטון רציף לכל כניסה לאפליקציה שסומנה"
+
+        return if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("תיעוד מסך פעיל")
-                .setContentText("סרטון רציף אחד לכל כניסה לאפליקציה שסומנה")
+                .setContentText(text)
                 .setOngoing(true)
                 .build()
         } else {
@@ -211,10 +239,11 @@ class ScreenCaptureService : Service() {
             Notification.Builder(this)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("תיעוד מסך פעיל")
-                .setContentText("סרטון רציף אחד לכל כניסה לאפליקציה שסומנה")
+                .setContentText(text)
                 .setOngoing(true)
                 .build()
         }
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
@@ -236,14 +265,20 @@ class ScreenCaptureService : Service() {
         private const val CHANNEL_ID = "screen_capture"
         private const val NOTIFICATION_ID = 2401
         private const val PREFS = "screen_recording"
+        private const val KEY_CONTINUOUS_MODE = "continuous_recording"
         const val KEY_PACKAGES = "packages"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+        const val CONTINUOUS_PACKAGE = "continuous.session"
 
         @Volatile private var instance: ScreenCaptureService? = null
 
         fun setActivePackage(packageName: String?) {
             instance?.setForegroundPackage(packageName)
+        }
+
+        fun setContinuousMode(enabled: Boolean) {
+            instance?.setContinuousMode(enabled)
         }
 
         fun start(context: Context, resultCode: Int, data: Intent) {
@@ -259,7 +294,7 @@ class ScreenCaptureService : Service() {
         }
 
         fun isRunning(): Boolean = instance?.running == true
-
         fun currentRecordingPackage(): String? = instance?.recordingPackage
+        fun isContinuousMode(): Boolean = instance?.continuousMode == true
     }
 }
