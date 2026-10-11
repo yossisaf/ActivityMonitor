@@ -31,7 +31,12 @@ class MonitorAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         repository = MonitorRepository(applicationContext)
         scope.launch {
+            val database = MonitorDatabase.get(applicationContext)
             runCatching { repository.closeOpenSessions(System.currentTimeMillis()) }
+            // Purge legacy click/text/scroll records and strip any old text payloads
+            // from transition records: the new monitoring model is app/activity only.
+            runCatching { database.eventDao().deleteOtherTypes(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) }
+            runCatching { database.eventDao().clearDetailsForType(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) }
             currentPackage = null
             currentSessionId = null
             lastActivityClass = null
@@ -116,8 +121,14 @@ class MonitorAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        if (::repository.isInitialized) {
-            scope.launch { runCatching { closeCurrentSession(System.currentTimeMillis()) } }
+        val openSessionId = currentSessionId
+        if (openSessionId != null) {
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    MonitorDatabase.get(applicationContext).sessionDao()
+                        .close(openSessionId, System.currentTimeMillis())
+                }
+            }
         }
         scope.cancel()
         serialDispatcher.close()
