@@ -265,6 +265,102 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private fun hasNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    private fun ignoresBatteryOptimizations(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        (getSystemService(POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(packageName)
+    } else true
+
+    private fun updateBackgroundWarning() {
+        val warning = rootContent.findViewById<TextView>(R.id.backgroundWarning) ?: return
+        val needsNotifications = !hasNotificationPermission()
+        val needsBattery = !ignoresBatteryOptimizations()
+        warning.visibility = if (needsNotifications || needsBattery) View.VISIBLE else View.GONE
+        warning.text = when {
+            needsNotifications && needsBattery -> "נדרשות הגדרות להתראות וליציבות ברקע — הקש כאן"
+            needsNotifications -> "התראות ניטור חסומות — הקש כאן"
+            needsBattery -> "חיסכון בסוללה עלול לעצור ניטור ברקע — הקש כאן"
+            else -> ""
+        }
+        warning.setOnClickListener { render("permissions") }
+    }
+
+    private fun updateBackgroundPermissionStatus() {
+        val status = rootContent.findViewById<TextView>(R.id.backgroundPermissionStatus) ?: return
+        val details = rootContent.findViewById<TextView>(R.id.backgroundPermissionDetails) ?: return
+        val notifications = hasNotificationPermission()
+        val battery = ignoresBatteryOptimizations()
+        status.text = when {
+            notifications && battery -> "מצב רקע: מוגדר"
+            !notifications && !battery -> "נדרשות שתי הגדרות"
+            !notifications -> "נדרשת הרשאת התראות"
+            else -> "נדרש חריג חיסכון בסוללה"
+        }
+        details.text = when {
+            notifications && battery -> "התראות זמינות והמערכת הוגדרה להקל על פעילות ממושכת ברקע. Android עדיין עשויה לעצור שירותים במצבים מסוימים."
+            !notifications && !battery -> "אשר התראות כדי לראות שההסרטה פועלת, ואפשר לאפליקציה לפעול מחוץ לאופטימיזציית הסוללה. אי אפשר להבטיח פעולה רציפה בכל מצב Android."
+            !notifications -> "בלי הרשאת התראות, ייתכן שלא תראה את מצב ההסרטה בהתראות. אפשר לאשר אותה בהגדרות."
+            else -> "חיסכון בסוללה עלול להפסיק פעילות ממושכת. אפשר להחריג את האפליקציה באישור מערכת."
+        }
+        updateBackgroundWarning()
+    }
+
+    private fun maybePromptBackgroundSetup() {
+        val prefs = getSharedPreferences("background_setup", MODE_PRIVATE)
+        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission() &&
+            !prefs.getBoolean("notification_prompt_shown", false)) {
+            prefs.edit().putBoolean("notification_prompt_shown", true).apply()
+            AlertDialog.Builder(this)
+                .setTitle("הרשאת התראות")
+                .setMessage("כדי לזהות מתי ההסרטה פעילה ולקבל הודעה על פעילות ברקע, אשר התראות ל־ActivityMonitor. ההסרטה עדיין מחייבת אישור צילום מסך של Android.")
+                .setNegativeButton("לא עכשיו", null)
+                .setPositiveButton("אישור") { _, _ ->
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
+                }
+                .show()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !ignoresBatteryOptimizations() &&
+            !prefs.getBoolean("battery_prompt_shown", false)) {
+            prefs.edit().putBoolean("battery_prompt_shown", true).apply()
+            AlertDialog.Builder(this)
+                .setTitle("שמירה על פעילות ברקע")
+                .setMessage("חיסכון בסוללה עלול להפסיק שירותי ניטור או לקטוע סרטון. אפשר לבקש מ־Android להחריג את האפליקציה. גם לאחר האישור, המערכת אינה מבטיחה פעולה רציפה בכל מצב.")
+                .setNegativeButton("לא עכשיו", null)
+                .setPositiveButton("פתיחת הגדרת סוללה") { _, _ -> openBatteryOptimizationSettings() }
+                .show()
+        }
+    }
+
+    private fun openBackgroundSetup() {
+        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission()) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !ignoresBatteryOptimizations()) {
+            openBatteryOptimizationSettings()
+            return
+        }
+        runCatching { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) }
+    }
+
+    private fun openBatteryOptimizationSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+        runCatching { startActivity(direct) }.onFailure {
+            runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+        }
+    }
+
+    @Deprecated("Deprecated in Android API")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == BACKGROUND_NOTIFICATION_REQUEST) {
+            updateBackgroundPermissionStatus()
+            maybePromptBackgroundSetup()
+        }
+    }
     private fun maybePromptUsageAccess() {
         if (permissionPromptShown || usageStats.hasUsageAccess()) return
         permissionPromptShown = true
@@ -985,6 +1081,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val ACTION_START_FROM_TILE = "com.example.activitymonitor.action.START_FROM_TILE"
+        const val ACTION_STOP_FROM_TILE = "com.example.activitymonitor.action.STOP_FROM_TILE"
+        private const val BACKGROUND_NOTIFICATION_REQUEST = 7421
     }
 
     private fun accessibilityEnabled(): Boolean {
