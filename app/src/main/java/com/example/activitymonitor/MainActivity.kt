@@ -329,10 +329,14 @@ class MainActivity : AppCompatActivity() {
     private fun recordingRoot(): File =
         File(getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "ActivityMonitor")
 
-    private fun recordingFiles(): List<File> =
-        recordingRoot().listFiles { file ->
-            file.isFile && file.extension.equals("mp4", ignoreCase = true)
+    private fun recordingFiles(): List<File> {
+        val activePath = ScreenCaptureService.currentRecordingPath()
+        return recordingRoot().listFiles { file ->
+            file.isFile &&
+                file.extension.equals("mp4", ignoreCase = true) &&
+                file.absolutePath != activePath
         }?.sortedByDescending { it.lastModified() } ?: emptyList()
+    }
 
     private fun updateDashboardRecordingStatus() {
         val status = rootContent.findViewById<TextView>(R.id.dashboardRecordingStatus) ?: return
