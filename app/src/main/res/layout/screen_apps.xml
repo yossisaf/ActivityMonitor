@@ -58,7 +58,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="לחיצה על אפליקציה מציגה את הפעולות שנקלטו בה. המתג קובע אם היא במעקב."
+            android:text="לחיצה על אפליקציה מציגה פתיחות ומעברים מרכזיים. לחיצות והקלדות אינן נשמרות."
             android:textColor="@color/text_secondary"
             android:textSize="12sp" />
     </LinearLayout>
