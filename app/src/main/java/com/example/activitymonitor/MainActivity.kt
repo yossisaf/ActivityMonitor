@@ -515,10 +515,18 @@ class MainActivity : AppCompatActivity() {
         val status = rootContent.findViewById<TextView>(R.id.dashboardRecordingStatus) ?: return
         val active = ScreenCaptureService.currentRecordingPackage()
         val selectedCount = getScreenRecordingPackages().size
+        val continuousRequested = getSharedPreferences("screen_recording", MODE_PRIVATE)
+            .getBoolean("continuous_recording", false)
         if (ScreenCaptureService.isRunning() && ScreenCaptureService.isContinuousMode()) {
             status.text = "● הסרטה רציפה פעילה עד לעצירה ידנית"
             return
         }
+        if (continuousRequested && !ScreenCaptureService.isRunning()) {
+            status.text = "⚠ הסרטה רציפה מוגדרת אך כרגע אינה פעילה — הקש כאן לחידוש"
+            status.setOnClickListener { render("permissions") }
+            return
+        }
+        status.setOnClickListener(null)
         val label = active?.let {
             runCatching {
                 val info = packageManager.getApplicationInfo(it, 0)
@@ -892,11 +900,13 @@ class MainActivity : AppCompatActivity() {
             !getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true) -> "מצב ניטור: מושהה"
             captureEnabled && ScreenCaptureService.isContinuousMode() -> "הסרטה רציפה פעילה"
             captureEnabled -> "תיעוד לפי אפליקציות: פעיל"
+            continuousPref -> "הסרטה רציפה אינה פעילה — נדרש להפעיל מחדש"
             else -> "תיעוד מסך: כבוי"
         }
         findViewById<TextView>(R.id.screenCaptureDetails).text = when {
             captureEnabled && ScreenCaptureService.isContinuousMode() -> "המסך מוקלט ברצף עד לחיצה על עצירת הסרטה. Android מציג התראה קבועה בזמן ההקלטה."
             captureEnabled -> "מצב לפי אפליקציות יוצר סרטון אחד לכל כניסה לאפליקציה שסומנה."
+            continuousPref -> "Android הפסיקה את צילום המסך או שהמכשיר הופעל מחדש. לחץ על הפעלה ואשר שוב צילום מסך כדי להמשיך. קובץ הווידאו הקודם נשמר בספרייה אם נסגר כראוי."
             else -> "בחר אפליקציות לתיעוד, או הפעל הסרטה רציפה עד לעצירה ידנית. Android יבקש אישור לפני תחילת הצילום."
         }
         updateBackgroundPermissionStatus()
