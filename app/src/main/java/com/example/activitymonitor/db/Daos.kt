@@ -22,6 +22,8 @@ interface SessionDao {
 @Dao
 interface EventDao {
     @Insert suspend fun insert(event: ActivityEventEntity): Long
+    @Query("DELETE FROM activity_events WHERE eventType != :keepType") suspend fun deleteOtherTypes(keepType: Int): Int
+    @Query("UPDATE activity_events SET text = NULL, contentDescription = NULL, viewId = NULL, sourceInfo = NULL WHERE eventType = :keepType") suspend fun clearDetailsForType(keepType: Int): Int
     @Insert suspend fun insertAll(events: List<ActivityEventEntity>): List<Long>
     @Query("SELECT * FROM activity_events ORDER BY timestamp DESC LIMIT :limit") fun observeRecent(limit: Int): Flow<List<ActivityEventEntity>>
     @Query("SELECT * FROM activity_events WHERE packageName = :packageName AND timestamp >= :start AND timestamp < :end ORDER BY timestamp DESC LIMIT :limit") suspend fun byPackage(packageName: String, start: Long, end: Long, limit: Int): List<ActivityEventEntity>
