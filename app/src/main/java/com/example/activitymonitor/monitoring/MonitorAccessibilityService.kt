@@ -137,7 +137,21 @@ class MonitorAccessibilityService : AccessibilityService() {
 
     private suspend fun closeCurrentSession(now: Long) {
         val id = currentSessionId
-        if (id != null && ::repository.isInitialized) {
+        val pkg = currentPackage
+        if (id != null && pkg != null && ::repository.isInitialized) {
+            val name = appName(pkg)
+            runCatching {
+                repository.insertEvent(
+                    ActivityEventEntity(
+                        timestamp = now,
+                        packageName = pkg,
+                        appName = name,
+                        eventType = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                        eventDescription = "נסגרה אפליקציה",
+                        sessionId = id
+                    )
+                )
+            }
             runCatching { MonitorDatabase.get(applicationContext).sessionDao().close(id, now) }
         }
         currentSessionId = null
