@@ -335,7 +335,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun openBackgroundSetup() {
         if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission()) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
+            val alreadyPrompted = getSharedPreferences("background_setup", MODE_PRIVATE)
+                .getBoolean("notification_prompt_shown", false)
+            if (alreadyPrompted) {
+                runCatching {
+                    startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    )
+                }
+            } else {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
+            }
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !ignoresBatteryOptimizations()) {
@@ -358,6 +369,7 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == BACKGROUND_NOTIFICATION_REQUEST) {
             updateBackgroundPermissionStatus()
+            updateBackgroundWarning()
             maybePromptBackgroundSetup()
         }
     }
