@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">נדרש כדי לקבל אירועי ממשק שאפליקציות חושפות למערכת</string>
+    <string name="accessibility_service_description">רושם פתיחת אפליקציות ומעברים בין מסכים בלבד; אינו קורא לחיצות, הקלדות או גלילות.</string>
+    <string name="monitor_tile_label">ניטור</string>
 </resources>
