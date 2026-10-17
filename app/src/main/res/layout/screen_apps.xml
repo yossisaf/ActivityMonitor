@@ -1,74 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingStart="14dp"
-    android:paddingEnd="14dp"
-    android:paddingTop="10dp">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="14dp"
-        android:background="@drawable/bg_card"
-        android:orientation="vertical">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="פעילות לפי אפליקציה"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary" />
-
-                <TextView
-                    android:id="@+id/appsCount"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="טוען…"
-                    android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/openSearch"
-                android:layout_width="wrap_content"
-                android:layout_height="42dp"
-                android:minWidth="0dp"
-                android:text="חיפוש"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:background="@drawable/bg_action" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="לחיצה על אפליקציה מציגה פתיחות ומעברים מרכזיים. לחיצות והקלדות אינן נשמרות."
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/appsRecycler"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp"
-        android:clipToPadding="false"
-        android:paddingBottom="8dp" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="10dp">
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="בחר אפליקציות להסרטה" android:textSize="21sp" android:textStyle="bold" android:textColor="@color/text_primary"/>
+ <TextView android:id="@+id/appsCount" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="טוען אפליקציות…" android:textSize="12sp" android:textColor="@color/text_secondary"/>
+ <EditText android:id="@+id/appsSearch" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:singleLine="true" android:hint="חיפוש לפי שם אפליקציה" android:inputType="text" android:imeOptions="actionDone" android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary" android:background="@drawable/bg_card"/>
+ <androidx.recyclerview.widget.RecyclerView android:id="@+id/appsRecycler" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="8dp" android:clipToPadding="false" android:paddingBottom="8dp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="62dp" android:gravity="center_vertical" android:paddingTop="7dp" android:paddingBottom="7dp" android:background="@color/surface">
+  <TextView android:id="@+id/selectedAppsCount" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="לא נבחרו אפליקציות" android:textSize="13sp" android:textStyle="bold" android:textColor="@color/text_primary"/>
+  <Button android:id="@+id/openSearch" android:layout_width="wrap_content" android:layout_height="48dp" android:minWidth="0dp" android:text="התחלת ההסרטה" android:textAllCaps="false" android:textSize="13sp" android:textColor="@android:color/white" android:background="@drawable/bg_action"/>
+ </LinearLayout>
 </LinearLayout>

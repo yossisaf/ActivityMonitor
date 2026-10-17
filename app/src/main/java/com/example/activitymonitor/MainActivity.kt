@@ -17,6 +17,8 @@ import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.inputmethod.EditorInfo
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -42,14 +44,14 @@ import com.example.activitymonitor.repository.PasswordManager
 import com.example.activitymonitor.monitoring.ScreenCaptureService
 import com.example.activitymonitor.ui.RecordingAdapter
 import com.example.activitymonitor.repository.UsageStatsRepository
-import com.example.activitymonitor.ui.AppAdapter
-import com.example.activitymonitor.ui.AppRow
 import com.example.activitymonitor.ui.BarChartView
 import com.example.activitymonitor.ui.EventAdapter
 import com.example.activitymonitor.ui.EventTranslator
 import com.example.activitymonitor.ui.Formatters
 import com.example.activitymonitor.ui.MainViewModel
 import com.example.activitymonitor.ui.RecentAppAdapter
+import com.example.activitymonitor.ui.RecordingAppAdapter
+import com.example.activitymonitor.ui.RecordingAppRow
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.io.File
@@ -63,7 +65,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var title: TextView
     private lateinit var eventAdapter: EventAdapter
     private lateinit var searchAdapter: EventAdapter
-    private lateinit var appAdapter: AppAdapter
+    private lateinit var appAdapter: RecordingAppAdapter
+    private var allRecordingApps: List<RecordingAppRow> = emptyList()
     private lateinit var recentAppAdapter: RecentAppAdapter
     private lateinit var passwordManager: PasswordManager
     private lateinit var toolbarBack: ImageButton
@@ -122,16 +125,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (mainUiInitialized && navStack.lastOrNull() == "dashboard") {
-            val toggle = rootContent.findViewById<Switch>(R.id.monitoringToggle)
-            if (toggle != null) {
-                toggle.setOnCheckedChangeListener(null)
-                toggle.isChecked = getSharedPreferences("settings", MODE_PRIVATE)
-                    .getBoolean("monitoring_enabled", true)
-                toggle.setOnCheckedChangeListener { _, enabled -> setMonitoringEnabled(enabled) }
-            }
             refreshDashboard()
             updateDashboardRecordingStatus()
         }
+
+
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
             "dashboard" -> {
@@ -390,7 +388,7 @@ class MainActivity : AppCompatActivity() {
         mapOf(
             R.id.navDashboard to "dashboard",
             R.id.navApps to "apps",
-            R.id.navStats to "stats",
+            R.id.navStats to "recordings",
             R.id.navPermissions to "permissions"
         ).forEach { (id, key) ->
             findViewById<Button>(id).setOnClickListener { selectRootTab(key) }
@@ -406,7 +404,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateNavSelection(key: String) {
         findViewById<Button>(R.id.navDashboard).isSelected = key == "dashboard"
         findViewById<Button>(R.id.navApps).isSelected = key == "apps" || key.startsWith("apptimeline:")
-        findViewById<Button>(R.id.navStats).isSelected = key == "stats" || key == "battery"
+        findViewById<Button>(R.id.navStats).isSelected = key == "recordings" || key == "stats" || key == "battery"
         findViewById<Button>(R.id.navPermissions).isSelected = key == "permissions"
     }
 
@@ -414,20 +412,10 @@ class MainActivity : AppCompatActivity() {
         eventAdapter = EventAdapter(iconCache) { openEvent(it) }
         searchAdapter = EventAdapter(iconCache) { openEvent(it) }
         recentAppAdapter = RecentAppAdapter(iconCache) { session -> openAppTimeline(session.packageName, session.appName) }
-        appAdapter = AppAdapter(
-            icons = iconCache,
-            onToggle = { pkg, enabled ->
-                lifecycleScope.launch {
-                    repository.upsertTracking(pkg, enabled)
-                    getSharedPreferences("settings", MODE_PRIVATE)
-                        .edit()
-                        .putBoolean("track_$pkg", enabled)
-                        .apply()
-                }
-            },
-            onRecordingToggle = { pkg, enabled -> setScreenRecordingForApp(pkg, enabled) },
-            onClick = { row -> openAppTimeline(row.packageName, row.name) }
-        )
+        appAdapter = RecordingAppAdapter(iconCache) { pkg, enabled ->
+            setScreenRecordingForApp(pkg, enabled)
+            updateAppsSelectionSummary()
+        }
     }
 
     private fun setupCollectors() {
@@ -481,20 +469,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDashboard() {
-        inflateScreen(R.layout.screen_dashboard, "סרטונים")
-        findViewById<RecyclerView>(R.id.dashboardRecycler).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            setHasFixedSize(true)
-        }
+        inflateScreen(R.layout.screen_dashboard, "הסרטה")
         findViewById<Button>(R.id.dashboardPermissions).setOnClickListener { render("permissions") }
         findViewById<Button>(R.id.dashboardSearch).setOnClickListener { render("apps") }
+        findViewById<Button>(R.id.dashboardContinuous).setOnClickListener { startContinuousRecording() }
+        findViewById<Button>(R.id.dashboardStop).setOnClickListener { stopScreenCaptureFromHome() }
         findViewById<Button>(R.id.dashboardRecordings).setOnClickListener { render("recordings") }
-        val monitorSwitch = findViewById<Switch>(R.id.monitoringToggle)
-        monitorSwitch.isChecked = getSharedPreferences("settings", MODE_PRIVATE)
-            .getBoolean("monitoring_enabled", true)
-        monitorSwitch.setOnCheckedChangeListener { _, enabled -> setMonitoringEnabled(enabled) }
         refreshDashboard()
-        updatePermissionBanner()
         updateDashboardRecordingStatus()
         updateBackgroundWarning()
     }
@@ -515,158 +496,122 @@ class MainActivity : AppCompatActivity() {
         val status = rootContent.findViewById<TextView>(R.id.dashboardRecordingStatus) ?: return
         val active = ScreenCaptureService.currentRecordingPackage()
         val selectedCount = getScreenRecordingPackages().size
-        val continuousRequested = getSharedPreferences("screen_recording", MODE_PRIVATE)
-            .getBoolean("continuous_recording", false)
-        if (ScreenCaptureService.isRunning() && ScreenCaptureService.isContinuousMode()) {
-            status.text = "● הסרטה רציפה פעילה עד לעצירה ידנית"
-            return
-        }
-        if (continuousRequested && !ScreenCaptureService.isRunning()) {
-            status.text = "⚠ הסרטה רציפה מוגדרת אך כרגע אינה פעילה — הקש כאן לחידוש"
-            status.setOnClickListener { render("permissions") }
-            return
-        }
-        status.setOnClickListener(null)
+        val screenPrefs = getSharedPreferences("screen_recording", MODE_PRIVATE)
+        val continuousRequested = screenPrefs.getBoolean("continuous_recording", false)
+        val running = ScreenCaptureService.isRunning()
+        val stopButton = rootContent.findViewById<Button>(R.id.dashboardStop)
+        stopButton?.visibility = if (running || continuousRequested) View.VISIBLE else View.GONE
         val label = active?.let {
             runCatching {
                 val info = packageManager.getApplicationInfo(it, 0)
                 packageManager.getApplicationLabel(info).toString()
             }.getOrNull()
         }
-        val monitorEnabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
+        val monitorEnabled = getSharedPreferences("settings", MODE_PRIVATE)
+            .getBoolean("monitoring_enabled", true)
         status.text = when {
-            !monitorEnabled -> "הניטור מושהה • אפשר להפעיל מאריח הניטור"
-            active != null && !label.isNullOrBlank() -> "● תיעוד פעיל עכשיו: $label"
-            active != null -> "● תיעוד פעיל עכשיו"
-            selectedCount > 0 -> "תיעוד כבוי • $selectedCount אפליקציות מסומנות"
-            else -> "עדיין לא נבחרה אפליקציה לתיעוד"
+            !monitorEnabled -> "ההסרטה מושהית"
+            running && ScreenCaptureService.isContinuousMode() ->
+                "● ההסרטה הכללית פעילה — כל מה שמופיע במסך מוקלט עד לעצירה"
+            running && !label.isNullOrBlank() ->
+                "● מוקלטת עכשיו האפליקציה: $label"
+            running ->
+                "מצב לפי אפליקציות פעיל. ההסרטה תתחיל כשתפתח אפליקציה שסומנה"
+            continuousRequested ->
+                "ההסרטה הכללית מוגדרת אך אינה פעילה כרגע. לחץ כאן להפעלה מחדש"
+            selectedCount > 0 ->
+                "נבחרו $selectedCount אפליקציות. ההסרטה תתחיל כשאחת מהן תהיה פתוחה"
+            else ->
+                "ההסרטה כבויה. בחר אחת משתי האפשרויות למעלה"
         }
+        status.setOnClickListener(
+            if (continuousRequested && !running) View.OnClickListener { startContinuousRecording() } else null
+        )
     }
 
     private fun refreshDashboard() {
-        lifecycleScope.launch {
-            val now = System.currentTimeMillis() + 1
-            val today = Formatters.dayStart()
-            val openings = repository.sessionCount(today, now)
-            val events = repository.eventCount(today, now)
-            val usage = if (usageStats.hasUsageAccess()) {
-                usageStats.queryAggregated(today, now).values.sum()
-            } else {
-                repository.totalDuration(today, now)
-            }
-            val files = recordingFiles()
-            if (navStack.lastOrNull() != "dashboard") return@launch
-
-            val recentVideos = files.take(12)
-            findViewById<RecyclerView>(R.id.dashboardRecycler).adapter =
-                RecordingAdapter(recentVideos) { refreshDashboard() }
-            findViewById<TextView>(R.id.dashboardOpenings).text = openings.toString()
-            findViewById<TextView>(R.id.dashboardEvents).text = events.toString()
-            findViewById<TextView>(R.id.dashboardUsage).text = "שימוש היום: ${Formatters.duration(usage)}"
-            findViewById<TextView>(R.id.recentCount).text =
-                when (files.size) {
-                    0 -> "אין סרטונים עדיין"
-                    1 -> "סרטון אחד"
-                    else -> "${files.size} סרטונים שמורים"
-                }
-            findViewById<TextView>(R.id.recentEmpty).visibility =
-                if (recentVideos.isEmpty()) View.VISIBLE else View.GONE
-            updateDashboardRecordingStatus()
+        if (navStack.lastOrNull() != "dashboard") return
+        val files = recordingFiles()
+        rootContent.findViewById<TextView>(R.id.dashboardVideoCount)?.text = when (files.size) {
+            0 -> "אין סרטונים שמורים עדיין"
+            1 -> "סרטון שמור אחד"
+            else -> "${files.size} סרטונים שמורים"
         }
+        updateDashboardRecordingStatus()
     }
-    private fun updatePermissionBanner() {
-        val banner = rootContent.findViewById<TextView>(R.id.permissionBanner) ?: return
-        if (!banner.isAttachedToWindow) return
-        val a = accessibilityEnabled()
-        val u = usageStats.hasUsageAccess()
-        val monitorEnabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
-        val statusTitle = findViewById<TextView>(R.id.dashboardStatusTitle)
-        val hint = findViewById<TextView>(R.id.permissionHint)
-        val dot = findViewById<View>(R.id.permissionDot)
 
-        when {
-            !monitorEnabled -> {
-                statusTitle?.text = "הניטור מושהה"
-                banner.text = "רישום פתיחות אפליקציה הושהה."
-                hint?.text = "הפעל את המתג כאן או את אריח הניטור בוילון Android."
-                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
-            }
-            a && u -> {
-                statusTitle?.text = "הניטור פעיל"
-                banner.text = "מעברי אפליקציה ומסכים מרכזיים נרשמים."
-                hint?.text = "לא נשמרות לחיצות, הקלדות או גלילות. הסרטונים מוצגים למטה."
-                dot?.setBackgroundResource(R.drawable.bg_permission_dot_ok)
-            }
-            a -> {
-                statusTitle?.text = "הניטור פעיל חלקית"
-                banner.text = "שירות הנגישות פעיל, אבל גישה לנתוני שימוש חסרה."
-                hint?.text = "פתיחות ומעברים מרכזיים נרשמים; הפעל גישה לנתוני שימוש עבור סטטיסטיקות זמן."
-                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
-            }
-            u -> {
-                statusTitle?.text = "הניטור מוגבל"
-                banner.text = "נתוני שימוש זמינים, אבל שירות הנגישות כבוי."
-                hint?.text = "הפעל אותו כדי לקבל גם פעולות בתוך אפליקציות."
-                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
-            }
-            else -> {
-                statusTitle?.text = "נדרשת השלמת הרשאות"
-                banner.text = "שני מקורות המידע המרכזיים אינם פעילים."
-                hint?.text = "לחץ על \"הרשאות\" כדי לפתוח את ההגדרות הרלוונטיות."
-                dot?.setBackgroundResource(R.drawable.bg_permission_dot)
-            }
-        }
+    private fun updatePermissionBanner() {
+        updateBackgroundWarning()
     }
 
     private fun showApps() {
-        inflateScreen(R.layout.screen_apps, "אפליקציות")
+        inflateScreen(R.layout.screen_apps, "בחירת אפליקציות")
         findViewById<RecyclerView>(R.id.appsRecycler).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = appAdapter
         }
-        findViewById<Button>(R.id.openSearch).setOnClickListener { render("search") }
-        lifecycleScope.launch { loadApps() }
+        findViewById<Button>(R.id.openSearch).setOnClickListener { startSelectedAppsRecording() }
+        findViewById<EditText>(R.id.appsSearch).addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                renderRecordingApps(s?.toString().orEmpty())
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+        loadApps()
     }
 
-    private suspend fun loadApps() {
-        val pm = packageManager
-        val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-            .map { it.activityInfo.applicationInfo }.distinctBy { it.packageName }.filter { it.packageName != packageName }.take(150)
-        val now = System.currentTimeMillis() + 1; val today = Formatters.dayStart()
-        val week = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, firstDayOfWeek); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val todayUsage = usageStats.queryAggregated(today, now); val weekUsage = usageStats.queryAggregated(week, now)
-        val settings = repository.trackingSettings().associateBy { it.packageName }
-        val sessionCounts = repository.packageSessionCounts(week, now).associate { it.packageName to it.count }
-        val eventRows = repository.eventsBetween(week, now, 5000)
-        val eventCounts = eventRows.groupingBy { it.packageName }.eachCount()
-        val lastActions = eventRows
-            .groupBy { it.packageName }
-            .mapValues { (_, rows) -> rows.maxByOrNull { it.timestamp }?.eventDescription }
-        val rows = apps.map { info ->
-            val pkg = info.packageName
-            val name = pm.getApplicationLabel(info).toString().ifBlank { pkg }
-            AppRow(
-                pkg,
-                name,
-                todayUsage[pkg] ?: 0L,
-                weekUsage[pkg] ?: 0L,
-                sessionCounts[pkg] ?: 0,
-                eventCounts[pkg] ?: 0,
-                lastActions[pkg],
-                settings[pkg]?.enabled ?: true,
-                getScreenRecordingPackages().contains(pkg)
-            )
-        }.sortedWith(
-            compareByDescending<AppRow> { it.screenRecord }
-                .thenByDescending { it.enabled }
-                .thenByDescending { it.todayMs }
-                .thenBy { it.name.lowercase() }
-        )
-        if (navStack.lastOrNull() == "apps") {
-            appAdapter.submitList(rows)
-            findViewById<TextView>(R.id.appsCount).text = "${rows.size} אפליקציות זמינות למעקב"
+    private fun loadApps() {
+        val selectedBefore = getScreenRecordingPackages()
+        val apps = runCatching {
+            packageManager.getInstalledApplications(0)
+                .asSequence()
+                .filter { it.packageName != packageName }
+                .map { info ->
+                    RecordingAppRow(
+                        packageName = info.packageName,
+                        name = runCatching { packageManager.getApplicationLabel(info).toString() }
+                            .getOrDefault(info.packageName).ifBlank { info.packageName }
+                    )
+                }
+                .distinctBy { it.packageName }
+                .sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
+                .toList()
+        }.getOrElse {
+            Toast.makeText(this, "לא ניתן לטעון את רשימת האפליקציות", Toast.LENGTH_LONG).show()
+            emptyList()
+        }
+        allRecordingApps = apps
+        val installed = apps.mapTo(mutableSetOf()) { it.packageName }
+        val validSelection = selectedBefore.filterTo(mutableSetOf()) { it in installed }
+        if (validSelection != selectedBefore) {
+            getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+                .putStringSet(ScreenCaptureService.KEY_PACKAGES, validSelection.toSet()).apply()
+        }
+        val query = rootContent.findViewById<EditText>(R.id.appsSearch)?.text?.toString().orEmpty()
+        renderRecordingApps(query)
+    }
+
+    private fun renderRecordingApps(query: String) {
+        val normalized = query.trim().lowercase(java.util.Locale.ROOT)
+        val visible = if (normalized.isEmpty()) allRecordingApps else allRecordingApps.filter {
+            it.name.lowercase(java.util.Locale.ROOT).contains(normalized) ||
+                it.packageName.lowercase(java.util.Locale.ROOT).contains(normalized)
+        }
+        appAdapter.submitList(visible, getScreenRecordingPackages())
+        updateAppsSelectionSummary()
+    }
+
+    private fun updateAppsSelectionSummary() {
+        if (navStack.lastOrNull() != "apps") return
+        rootContent.findViewById<TextView>(R.id.appsCount)?.text =
+            "${allRecordingApps.size} אפליקציות מותקנות במכשיר"
+        val selected = getScreenRecordingPackages().size
+        rootContent.findViewById<TextView>(R.id.selectedAppsCount)?.text =
+            if (selected == 0) "לא נבחרו אפליקציות" else "נבחרו $selected אפליקציות"
+        rootContent.findViewById<Button>(R.id.openSearch)?.apply {
+            isEnabled = selected > 0
+            text = if (selected == 0) "בחר אפליקציות תחילה" else "התחלת ההסרטה ($selected)"
         }
     }
 
@@ -776,10 +721,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPermissions() {
-        inflateScreen(R.layout.screen_permissions, "הרשאות ואפשרויות ניטור")
+        inflateScreen(R.layout.screen_permissions, "הגדרות")
         updatePermissionScreen()
-        findViewById<Button>(R.id.openAccessibility).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
-        findViewById<Button>(R.id.openUsage).setOnClickListener { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
+        findViewById<Button>(R.id.openAccessibility).setOnClickListener {
+            runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        }
+        findViewById<Button>(R.id.openUsage).setOnClickListener {
+            runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+        }
         findViewById<Button>(R.id.changePassword).setOnClickListener { showChangePasswordDialog() }
         findViewById<Button>(R.id.openRecordings).setOnClickListener { render("recordings") }
         findViewById<Button>(R.id.backgroundSetup).setOnClickListener { openBackgroundSetup() }
@@ -790,53 +739,25 @@ class MainActivity : AppCompatActivity() {
             advanced.visibility = if (open) View.VISIBLE else View.GONE
             advancedToggle.text = if (open) "אפשרויות מתקדמות  ↓" else "אפשרויות מתקדמות  ›"
         }
-        findViewById<Button>(R.id.startScreenCapture).setOnClickListener {
-            if (!ScreenCaptureService.isRunning()) requestScreenCapture()
-            else Toast.makeText(this, "תיעוד המסך כבר פעיל", Toast.LENGTH_SHORT).show()
-        }
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val screenPrefs = getSharedPreferences("screen_recording", MODE_PRIVATE)
-        findViewById<Switch>(R.id.continuousRecordingSwitch).apply {
-            isChecked = screenPrefs.getBoolean("continuous_recording", false)
-            setOnCheckedChangeListener { _, enabled ->
-                screenPrefs.edit().putBoolean("continuous_recording", enabled).apply()
-                if (enabled) {
-                    prefs.edit().putBoolean("monitoring_enabled", true).apply()
-                    MonitorTileService.refreshTile(this@MainActivity)
-                    pendingContinuousStart = true
-                    if (ScreenCaptureService.isRunning()) {
-                        ScreenCaptureService.setContinuousMode(true)
-                        pendingContinuousStart = false
-                    } else {
-                        requestScreenCapture()
-                    }
-                } else {
-                    pendingContinuousStart = false
-                    ScreenCaptureService.setContinuousMode(false)
-                }
-                updatePermissionScreen()
-            }
-        }
-        findViewById<Button>(R.id.stopScreenCapture).setOnClickListener {
-            screenPrefs.edit().putBoolean("continuous_recording", false).apply()
-            pendingContinuousStart = false
-            ScreenCaptureService.stop(this)
-            findViewById<Switch>(R.id.continuousRecordingSwitch).isChecked = false
-            MonitorTileService.refreshTile(this)
-            updatePermissionScreen()
-            Toast.makeText(this, "ההסרטה נעצרה", Toast.LENGTH_SHORT).show()
-        }
-        val retention = findViewById<EditText>(R.id.retentionDays); retention.setText(prefs.getInt("retention_days", 30).toString())
+        val retention = findViewById<EditText>(R.id.retentionDays)
+        retention.setText(prefs.getInt("retention_days", 30).toString())
         findViewById<Button>(R.id.saveRetention).setOnClickListener {
             val days = retention.text.toString().toIntOrNull()?.coerceIn(1, 3650) ?: 30
-            prefs.edit().putInt("retention_days", days).apply(); lifecycleScope.launch { repository.cleanup(days) }
+            prefs.edit().putInt("retention_days", days).apply()
+            lifecycleScope.launch { repository.cleanup(days) }
             Toast.makeText(this, "הגדרת השמירה נשמרה", Toast.LENGTH_SHORT).show()
         }
         findViewById<Button>(R.id.deleteHistory).setOnClickListener {
             AlertDialog.Builder(this).setTitle("מחיקת כל ההיסטוריה")
                 .setMessage("כל האירועים, הסשנים ודגימות הסוללה במכשיר יימחקו. אי אפשר לבטל פעולה זו.")
                 .setNegativeButton("ביטול", null)
-                .setPositiveButton("מחק") { _, _ -> lifecycleScope.launch { repository.deleteAllHistory(); Toast.makeText(this@MainActivity, "ההיסטוריה נמחקה", Toast.LENGTH_SHORT).show() } }
+                .setPositiveButton("מחק") { _, _ ->
+                    lifecycleScope.launch {
+                        repository.deleteAllHistory()
+                        Toast.makeText(this@MainActivity, "ההיסטוריה נמחקה", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 .show()
         }
     }
@@ -885,30 +806,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePermissionScreen() {
         if (rootContent.findViewById<View>(R.id.accessibilityStatus) == null) return
-        val a = accessibilityEnabled(); val u = usageStats.hasUsageAccess()
-        findViewById<TextView>(R.id.accessibilityStatus).text = if (a) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
-        findViewById<TextView>(R.id.usageStatus).text = if (u) "מצב נוכחי: פעיל" else "מצב נוכחי: לא פעיל"
-        findViewById<TextView>(R.id.accessibilityDetails).text = "רישום פתיחה וסיום של אפליקציות ומעבר למסך מרכזי בלבד. לחיצות, הקלדות וגלילות אינן נשמרות."
-        findViewById<TextView>(R.id.usageDetails).text = "משמש למדידת זמן שימוש באפליקציות דרך UsageStatsManager. Android עשויה להגביל או לשנות את הנתונים הזמינים."
-        val captureEnabled = ScreenCaptureService.isRunning()
-        val continuousPref = getSharedPreferences("screen_recording", MODE_PRIVATE)
-            .getBoolean("continuous_recording", false)
-        findViewById<Switch>(R.id.continuousRecordingSwitch)?.let { toggle ->
-            if (toggle.isChecked != continuousPref) toggle.isChecked = continuousPref
-        }
-        findViewById<TextView>(R.id.screenCaptureStatus).text = when {
-            !getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true) -> "מצב ניטור: מושהה"
-            captureEnabled && ScreenCaptureService.isContinuousMode() -> "הסרטה רציפה פעילה"
-            captureEnabled -> "תיעוד לפי אפליקציות: פעיל"
-            continuousPref -> "הסרטה רציפה אינה פעילה — נדרש להפעיל מחדש"
-            else -> "תיעוד מסך: כבוי"
-        }
-        findViewById<TextView>(R.id.screenCaptureDetails).text = when {
-            captureEnabled && ScreenCaptureService.isContinuousMode() -> "המסך מוקלט ברצף עד לחיצה על עצירת הסרטה. Android מציג התראה קבועה בזמן ההקלטה."
-            captureEnabled -> "מצב לפי אפליקציות יוצר סרטון אחד לכל כניסה לאפליקציה שסומנה."
-            continuousPref -> "Android הפסיקה את צילום המסך או שהמכשיר הופעל מחדש. לחץ על הפעלה ואשר שוב צילום מסך כדי להמשיך. קובץ הווידאו הקודם נשמר בספרייה אם נסגר כראוי."
-            else -> "בחר אפליקציות לתיעוד, או הפעל הסרטה רציפה עד לעצירה ידנית. Android יבקש אישור לפני תחילת הצילום."
-        }
+        val accessibility = accessibilityEnabled()
+        val usage = usageStats.hasUsageAccess()
+        findViewById<TextView>(R.id.accessibilityStatus).text = if (accessibility) "פעיל" else "לא פעיל"
+        findViewById<TextView>(R.id.usageStatus).text = if (usage) "פעיל" else "לא פעיל"
+        findViewById<TextView>(R.id.accessibilityDetails).text =
+            "נדרש כדי לזהות מתי עוברים בין אפליקציות ולהתחיל או להפסיק את ההסרטה לפי הבחירה."
+        findViewById<TextView>(R.id.usageDetails).text =
+            "משמש לנתוני זמן שימוש בלבד. אפשר להשאיר כבוי אם אינך זקוק לסטטיסטיקות."
         updateBackgroundPermissionStatus()
     }
 
@@ -919,30 +824,75 @@ class MainActivity : AppCompatActivity() {
 
     private fun setScreenRecordingForApp(packageName: String, enabled: Boolean) {
         val selected = getScreenRecordingPackages()
+        if (enabled) selected.add(packageName) else selected.remove(packageName)
+        getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+            .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected.toSet()).apply()
         if (enabled) {
-            selected.add(packageName)
-            getSharedPreferences("screen_recording", MODE_PRIVATE)
-                .edit()
-                .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
-                .apply()
             getSharedPreferences("settings", MODE_PRIVATE).edit()
                 .putBoolean("monitoring_enabled", true).apply()
-            MonitorTileService.refreshTile(this)
-            if (!ScreenCaptureService.isRunning()) {
-                pendingRecordPackage = packageName
-                requestScreenCapture()
-            }
-        } else {
-            selected.remove(packageName)
-            getSharedPreferences("screen_recording", MODE_PRIVATE)
-                .edit()
-                .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
-                .apply()
-            if (ScreenCaptureService.isRunning() && !ScreenCaptureService.isContinuousMode()) {
-                if (selected.isEmpty()) ScreenCaptureService.stop(this)
-                else ScreenCaptureService.setActivePackage(null)
-            }
+        } else if (selected.isEmpty() && ScreenCaptureService.isRunning() &&
+            !ScreenCaptureService.isContinuousMode()) {
+            ScreenCaptureService.stop(this)
+        } else if (ScreenCaptureService.isRunning() && !ScreenCaptureService.isContinuousMode()) {
+            ScreenCaptureService.setActivePackage(null)
         }
+        MonitorTileService.refreshTile(this)
+    }
+
+    private fun startSelectedAppsRecording() {
+        val selected = getScreenRecordingPackages()
+        if (selected.isEmpty()) {
+            Toast.makeText(this, "בחר לפחות אפליקציה אחת", Toast.LENGTH_SHORT).show()
+            return
+        }
+        getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+            .putBoolean("continuous_recording", false).apply()
+        getSharedPreferences("settings", MODE_PRIVATE).edit()
+            .putBoolean("monitoring_enabled", true).apply()
+        MonitorTileService.refreshTile(this)
+        if (ScreenCaptureService.isRunning()) {
+            pendingContinuousStart = false
+            if (ScreenCaptureService.isContinuousMode()) ScreenCaptureService.setContinuousMode(false)
+            Toast.makeText(this,
+                "המצב לפי אפליקציות נבחר. ההסרטה תתחיל כשתפתח אפליקציה שסימנת.",
+                Toast.LENGTH_LONG).show()
+            updateDashboardRecordingStatus()
+            return
+        }
+        pendingContinuousStart = false
+        requestScreenCapture()
+    }
+
+    private fun startContinuousRecording() {
+        val screenPrefs = getSharedPreferences("screen_recording", MODE_PRIVATE)
+        if (ScreenCaptureService.isRunning() && ScreenCaptureService.isContinuousMode()) {
+            Toast.makeText(this, "ההסרטה הכללית כבר פעילה", Toast.LENGTH_SHORT).show()
+            return
+        }
+        screenPrefs.edit().putBoolean("continuous_recording", true).apply()
+        getSharedPreferences("settings", MODE_PRIVATE).edit()
+            .putBoolean("monitoring_enabled", true).apply()
+        MonitorTileService.refreshTile(this)
+        if (ScreenCaptureService.isRunning()) {
+            pendingContinuousStart = false
+            ScreenCaptureService.setContinuousMode(true)
+            updateDashboardRecordingStatus()
+            Toast.makeText(this, "ההסרטה הכללית החלה", Toast.LENGTH_SHORT).show()
+        } else {
+            pendingContinuousStart = true
+            requestScreenCapture()
+        }
+    }
+
+    private fun stopScreenCaptureFromHome() {
+        getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
+            .putBoolean("continuous_recording", false).apply()
+        pendingContinuousStart = false
+        pendingRecordPackage = null
+        ScreenCaptureService.stop(this)
+        MonitorTileService.refreshTile(this)
+        updateDashboardRecordingStatus()
+        Toast.makeText(this, "ההסרטה נעצרה", Toast.LENGTH_SHORT).show()
     }
 
     private fun setMonitoringEnabled(enabled: Boolean) {
@@ -995,7 +945,6 @@ class MainActivity : AppCompatActivity() {
             if (pendingContinuousStart) {
                 getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
                     .putBoolean("continuous_recording", false).apply()
-                rootContent.findViewById<Switch>(R.id.continuousRecordingSwitch)?.isChecked = false
             }
             pendingContinuousStart = false
             Toast.makeText(this, "תיעוד המסך לא הופעל", Toast.LENGTH_SHORT).show()

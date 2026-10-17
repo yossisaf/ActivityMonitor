@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="6dp" android:minHeight="72dp" android:gravity="center_vertical" android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="7dp" android:paddingBottom="7dp" android:background="@drawable/bg_card" android:orientation="horizontal">
+ <ImageView android:id="@+id/recordAppIcon" android:layout_width="42dp" android:layout_height="42dp" android:layout_marginEnd="10dp" android:contentDescription="סמל האפליקציה"/>
+ <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+  <TextView android:id="@+id/recordAppName" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="15sp" android:textStyle="bold" android:textColor="@color/text_primary" android:maxLines="2" android:ellipsize="end"/>
+  <TextView android:id="@+id/recordAppPackage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textSize="10sp" android:textColor="@color/text_secondary" android:maxLines="1" android:ellipsize="end"/>
+ </LinearLayout>
+ <CheckBox android:id="@+id/recordAppCheck" android:layout_width="52dp" android:layout_height="52dp" android:contentDescription="כלול בהסרטה" android:buttonTint="@color/primary"/>
+</LinearLayout>
