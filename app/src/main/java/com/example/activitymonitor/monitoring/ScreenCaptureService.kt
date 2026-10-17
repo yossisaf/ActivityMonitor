@@ -29,11 +29,12 @@ class ScreenCaptureService : Service() {
     private var recordingFile: File? = null
     private var running = false
     private var continuousMode = false
+    private var recordingError: String? = null
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
-            stopRecording()
             releaseProjection()
+            stopSelf()
         }
     }
 
@@ -82,6 +83,7 @@ class ScreenCaptureService : Service() {
             } else {
                 activePackage?.takeIf { selectedPackages().contains(it) }?.let { startRecording(it) }
             }
+            refreshNotification()
         }.onFailure {
             releaseProjection()
             stopSelf()
@@ -106,6 +108,7 @@ class ScreenCaptureService : Service() {
         } else {
             stopRecording()
         }
+        refreshNotification()
     }
 
     fun setContinuousMode(enabled: Boolean) {
@@ -123,6 +126,7 @@ class ScreenCaptureService : Service() {
         ) {
             activePackage?.takeIf { selectedPackages().contains(it) }?.let { startRecording(it) }
         }
+        refreshNotification()
     }
 
     private fun startRecording(packageName: String, allowUnselected: Boolean = false) {
@@ -130,7 +134,11 @@ class ScreenCaptureService : Service() {
         if (!allowUnselected && !selectedPackages().contains(packageName)) return
         if (!getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)) return
 
-        runCatching {
+        var candidateRecorder: MediaRecorder? = null
+        var candidateDisplay: android.hardware.display.VirtualDisplay? = null
+        var outputFile: File? = null
+        try {
+            recordingError = null
             val metrics = resources.displayMetrics
             val screenW = metrics.widthPixels.coerceAtLeast(320)
             val screenH = metrics.heightPixels.coerceAtLeast(320)
@@ -142,13 +150,20 @@ class ScreenCaptureService : Service() {
             val root = File(
                 getExternalFilesDir(Environment.DIRECTORY_MOVIES),
                 "ActivityMonitor"
-            ).apply { mkdirs() }
+            )
+            if (!root.exists() && !root.mkdirs()) error("לא ניתן ליצור תיקיית סרטונים")
 
             val safePackage = packageName.replace(Regex("[^A-Za-z0-9_.-]"), "_").take(96)
-            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(root, "${stamp}__${safePackage}.mp4")
+            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+            var file = File(root, "${stamp}__${safePackage}.mp4")
+            var suffix = 1
+            while (file.exists()) {
+                file = File(root, "${stamp}_${suffix++}__${safePackage}.mp4")
+            }
+            outputFile = file
 
             val mr = MediaRecorder()
+            candidateRecorder = mr
             @Suppress("DEPRECATION")
             mr.setVideoSource(MediaRecorder.VideoSource.SURFACE)
             mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -168,17 +183,32 @@ class ScreenCaptureService : Service() {
                 mr.surface,
                 null,
                 null
-            ) ?: error("Virtual display unavailable")
+            ) ?: error("Android לא אפשרה ליצור תצוגת הקלטה")
+            candidateDisplay = display
 
             mr.start()
             virtualDisplay = display
             recorder = mr
             recordingPackage = packageName
             recordingFile = file
-        }.onFailure {
-            stopRecording()
+            candidateDisplay = null
+            candidateRecorder = null
+            refreshNotification()
+        } catch (failure: Exception) {
+            runCatching { candidateDisplay?.release() }
+            runCatching { candidateRecorder?.reset() }
+            runCatching { candidateRecorder?.release() }
+            runCatching { outputFile?.delete() }
+            recordingPackage = null
+            recordingFile = null
+            recordingError = failure.message?.take(90)
+                ?.takeIf { it.isNotBlank() }
+                ?: "בדוק הרשאות ותאימות של המכשיר"
+            refreshNotification()
         }
     }
+
+
 
     private fun stopRecording() {
         val display = virtualDisplay
@@ -199,6 +229,8 @@ class ScreenCaptureService : Service() {
         if (file != null && (!file.exists() || file.length() < 8_192L)) {
             runCatching { file.delete() }
         }
+        recordingError = null
+        if (running) refreshNotification()
     }
 
     private fun selectedPackages(): Set<String> =
@@ -222,10 +254,12 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun buildNotification(): Notification {
-        val text = if (continuousMode ||
-            getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_CONTINUOUS_MODE, false)
-        ) "הסרטה רציפה פעילה עד עצירה ידנית"
-        else "סרטון רציף לכל כניסה לאפליקציה שסומנה"
+        val text = when {
+            !recordingError.isNullOrBlank() -> "שגיאת הסרטה: ${recordingError}"
+            continuousMode -> "הסרטה כללית פעילה עד עצירה ידנית"
+            recordingPackage != null -> "מקליט אפליקציה שסומנה"
+            else -> "ממתין לפתיחת אפליקציה שסומנה"
+        }
 
         return if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(this, CHANNEL_ID)
@@ -242,6 +276,14 @@ class ScreenCaptureService : Service() {
                 .setContentText(text)
                 .setOngoing(true)
                 .build()
+        }
+    }
+
+    private fun refreshNotification() {
+        if (!running) return
+        runCatching {
+            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, buildNotification())
         }
     }
 
