@@ -78,7 +78,6 @@ class MainActivity : AppCompatActivity() {
     private var searchCustomEnd: Long? = null
     private var searchPackageFilter: String? = null
     private var searchEventTypeFilter: Int? = null
-    private var pendingRecordPackage: String? = null
     private var pendingTileStart = false
     private var pendingTileStop = false
     private var tileStopGatePassed = false
@@ -387,7 +386,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupNav() {
         mapOf(
             R.id.navDashboard to "dashboard",
-            R.id.navApps to "apps",
             R.id.navStats to "recordings",
             R.id.navPermissions to "permissions"
         ).forEach { (id, key) ->
@@ -403,8 +401,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateNavSelection(key: String) {
         findViewById<Button>(R.id.navDashboard).isSelected = key == "dashboard"
-        findViewById<Button>(R.id.navApps).isSelected = key == "apps" || key.startsWith("apptimeline:")
-        findViewById<Button>(R.id.navStats).isSelected = key == "recordings" || key == "stats" || key == "battery"
+        findViewById<Button>(R.id.navStats).isSelected = key == "recordings"
         findViewById<Button>(R.id.navPermissions).isSelected = key == "permissions"
     }
 
@@ -611,7 +608,7 @@ class MainActivity : AppCompatActivity() {
             if (selected == 0) "לא נבחרו אפליקציות" else "נבחרו $selected אפליקציות"
         rootContent.findViewById<Button>(R.id.openSearch)?.apply {
             isEnabled = selected > 0
-            text = if (selected == 0) "בחר אפליקציות תחילה" else "התחלת ההסרטה ($selected)"
+            text = if (selected == 0) "בחר אפליקציות תחילה" else "הפעלת מצב לפי אפליקציות ($selected)"
         }
     }
 
@@ -840,6 +837,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startSelectedAppsRecording() {
+        if (!accessibilityEnabled()) {
+            AlertDialog.Builder(this)
+                .setTitle("נדרשת הפעלת זיהוי אפליקציות")
+                .setMessage("כדי להתחיל ולסיים הסרטה אוטומטית לפי אפליקציות, יש להפעיל את שירות הנגישות של ActivityMonitor בהגדרות Android. לאחר ההפעלה חזור לכאן ולחץ שוב על הכפתור. ההסרטה הכללית אינה דורשת הגדרה זו.")
+                .setNegativeButton("ביטול", null)
+                .setPositiveButton("פתיחת הגדרות") { _, _ ->
+                    runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                }
+                .show()
+            return
+        }
         val selected = getScreenRecordingPackages()
         if (selected.isEmpty()) {
             Toast.makeText(this, "בחר לפחות אפליקציה אחת", Toast.LENGTH_SHORT).show()
@@ -888,7 +896,6 @@ class MainActivity : AppCompatActivity() {
         getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
             .putBoolean("continuous_recording", false).apply()
         pendingContinuousStart = false
-        pendingRecordPackage = null
         ScreenCaptureService.stop(this)
         MonitorTileService.refreshTile(this)
         updateDashboardRecordingStatus()
@@ -927,21 +934,21 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != screenCaptureRequestCode) return
+
         if (resultCode == RESULT_OK && data != null) {
             ScreenCaptureService.start(this, resultCode, data)
             if (pendingContinuousStart) ScreenCaptureService.setContinuousMode(true)
             pendingContinuousStart = false
             MonitorTileService.refreshTile(this)
-            Toast.makeText(this, if (getSharedPreferences("screen_recording", MODE_PRIVATE).getBoolean("continuous_recording", false)) "ההסרטה הרציפה החלה" else "תיעוד המסך הופעל", Toast.LENGTH_SHORT).show()
+            val continuous = getSharedPreferences("screen_recording", MODE_PRIVATE)
+                .getBoolean("continuous_recording", false)
+            Toast.makeText(
+                this,
+                if (continuous) "ההסרטה הכללית החלה"
+                else "מצב לפי אפליקציות הופעל. פתח אפליקציה שסימנת כדי להתחיל להקליט.",
+                Toast.LENGTH_LONG
+            ).show()
         } else {
-            pendingRecordPackage?.let {
-                val selected = getScreenRecordingPackages()
-                selected.remove(it)
-                getSharedPreferences("screen_recording", MODE_PRIVATE)
-                    .edit()
-                    .putStringSet(ScreenCaptureService.KEY_PACKAGES, selected)
-                    .apply()
-            }
             if (pendingContinuousStart) {
                 getSharedPreferences("screen_recording", MODE_PRIVATE).edit()
                     .putBoolean("continuous_recording", false).apply()
@@ -949,8 +956,9 @@ class MainActivity : AppCompatActivity() {
             pendingContinuousStart = false
             Toast.makeText(this, "תיעוד המסך לא הופעל", Toast.LENGTH_SHORT).show()
         }
-        pendingRecordPackage = null
+
         if (navStack.lastOrNull() == "permissions") updatePermissionScreen()
+        updateDashboardRecordingStatus()
     }
 
     private fun showRecordings() {

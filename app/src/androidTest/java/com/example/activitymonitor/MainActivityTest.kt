@@ -13,7 +13,7 @@ class MainActivityTest {
     @get:Rule val activityRule = ActivityScenarioRule(MainActivity::class.java)
 
     @Test fun main_screen_opens_in_hebrew() {
-        onView(withText("פעילות אחרונה")).check { view, _ ->
+        onView(withText("ניטור המכשיר")).check { view, _ ->
             check(view.isShown)
         }
     }
