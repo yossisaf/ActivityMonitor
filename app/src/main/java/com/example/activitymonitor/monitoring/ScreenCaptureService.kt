@@ -175,10 +175,8 @@ class ScreenCaptureService : Service() {
             mr.setOutputFile(file.absolutePath)
             mr.prepare()
 
-            // Start the encoder before connecting the virtual display so the
-            // first captured frames are written to an active encoder surface.
-            mr.start()
-
+            // Connect the prepared recorder surface to the projection display,
+            // then start the encoder (the established MediaProjection sequence).
             val display = projection?.createVirtualDisplay(
                 "ActivityMonitorCapture",
                 width,
@@ -191,6 +189,7 @@ class ScreenCaptureService : Service() {
             ) ?: error("Android לא אפשרה ליצור תצוגת הקלטה")
             candidateDisplay = display
 
+            mr.start()
             virtualDisplay = display
             recorder = mr
             recordingPackage = packageName
