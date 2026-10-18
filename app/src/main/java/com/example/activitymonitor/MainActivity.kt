@@ -354,6 +354,11 @@ class MainActivity : AppCompatActivity() {
                 .setOnClickListener { openRequiredSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS), "לא ניתן לפתוח את הגדרות נתוני השימוש") }
             rootContent.findViewById<Button>(R.id.requiredBatteryAction)
                 .setOnClickListener { openBatteryOptimizationSettings() }
+            rootContent.findViewById<Button>(R.id.requiredEmergencyStop)
+                .setOnClickListener {
+                    stopScreenCaptureFromHome()
+                    rootContent.findViewById<Button>(R.id.requiredEmergencyStop)?.visibility = View.GONE
+                }
         }
 
         updateRequiredPermissionsScreen()
@@ -386,6 +391,10 @@ class MainActivity : AppCompatActivity() {
             if (batteryReady) View.GONE else View.VISIBLE
 
         val done = listOf(notificationReady, accessibilityReady, usageReady, batteryReady).count { it }
+        val continuousRequested = getSharedPreferences("screen_recording", MODE_PRIVATE)
+            .getBoolean("continuous_recording", false)
+        rootContent.findViewById<Button>(R.id.requiredEmergencyStop)?.visibility =
+            if (ScreenCaptureService.isRunning() || continuousRequested) View.VISIBLE else View.GONE
         rootContent.findViewById<TextView>(R.id.requiredPermissionsProgress).text =
             "$done מתוך 4 הגדרות הושלמו"
         rootContent.findViewById<TextView>(R.id.requiredPermissionsHint).text =
@@ -597,7 +606,7 @@ class MainActivity : AppCompatActivity() {
             continuousRequested ->
                 "ההסרטה הכללית מוגדרת אך אינה פעילה כרגע. לחץ כאן להפעלה מחדש"
             selectedCount > 0 ->
-                "נבחרו $selectedCount אפליקציות. ההסרטה תתחיל כשאחת מהן תהיה פתוחה"
+                "נבחרו $selectedCount אפליקציות, אך ההסרטה אינה פעילה. לחץ על ״בחירת אפליקציות״ כדי להפעיל אותה"
             else ->
                 "ההסרטה כבויה. בחר אחת משתי האפשרויות למעלה"
         }
