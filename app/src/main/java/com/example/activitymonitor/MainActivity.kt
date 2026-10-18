@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var passwordManager: PasswordManager
     private lateinit var toolbarBack: ImageButton
     private var mainUiInitialized = false
-    private var permissionPromptShown = false
+    private var permissionGateShowing = false
     private val navStack = ArrayDeque<String>()
     private var searchOffset = 0
     private var searchCustomStart: Long? = null
@@ -123,23 +123,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (mainUiInitialized && navStack.lastOrNull() == "dashboard") {
+        if (!mainUiInitialized) return
+        if (enforceRequiredPermissions()) return
+
+        if (navStack.lastOrNull() == "dashboard") {
             refreshDashboard()
             updateDashboardRecordingStatus()
+            updatePermissionBanner()
+            updateBackgroundWarning()
         }
-
-
         when (navStack.lastOrNull()) {
             "permissions" -> updatePermissionScreen()
-            "dashboard" -> {
-                updatePermissionBanner()
-                updateBackgroundWarning()
-            }
+            "dashboard" -> updateBackgroundWarning()
         }
-        if (mainUiInitialized) {
-            updateBackgroundPermissionStatus()
-            maybePromptBackgroundSetup()
-        }
+        updateBackgroundPermissionStatus()
     }
 
     private fun showPasswordGate() {
@@ -204,14 +201,24 @@ class MainActivity : AppCompatActivity() {
         setupNav()
         setupAdapters()
         setupCollectors()
+
+        // A stop request from the Quick Settings tile must always remain available,
+        // even if another permission was revoked since the last launch.
+        if (pendingTileStop) {
+            navStack.clear()
+            render("dashboard")
+            continuePendingTileStop()
+            return
+        }
+
+        if (enforceRequiredPermissions()) return
         render("dashboard")
         continuePendingTileStart()
         continuePendingTileStop()
-        maybePromptBackgroundSetup()
     }
 
     private fun continuePendingTileStart() {
-        if (!pendingTileStart || !mainUiInitialized) return
+        if (!pendingTileStart || !mainUiInitialized || permissionGateShowing) return
         pendingTileStart = false
         val enabled = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("monitoring_enabled", true)
         if (!enabled || ScreenCaptureService.isRunning()) return
@@ -303,30 +310,115 @@ class MainActivity : AppCompatActivity() {
         updateBackgroundWarning()
     }
 
-    private fun maybePromptBackgroundSetup() {
-        val prefs = getSharedPreferences("background_setup", MODE_PRIVATE)
-        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission() &&
-            !prefs.getBoolean("notification_prompt_shown", false)) {
-            prefs.edit().putBoolean("notification_prompt_shown", true).apply()
-            AlertDialog.Builder(this)
-                .setTitle("הרשאת התראות")
-                .setMessage("כדי לזהות מתי ההסרטה פעילה ולקבל הודעה על פעילות ברקע, אשר התראות ל־ActivityMonitor. ההסרטה עדיין מחייבת אישור צילום מסך של Android.")
-                .setNegativeButton("לא עכשיו", null)
-                .setPositiveButton("אישור") { _, _ ->
-                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
-                }
-                .show()
+    private fun requiredPermissionCountMissing(): Int {
+        var missing = 0
+        if (!hasNotificationPermission()) missing++
+        if (!accessibilityEnabled()) missing++
+        if (!usageStats.hasUsageAccess()) missing++
+        if (!ignoresBatteryOptimizations()) missing++
+        return missing
+    }
+
+    /**
+     * These settings are checked on every launch/resume. When any is missing,
+     * the rest of the app stays behind a focused setup screen until the user
+     * returns from Android Settings with all four settings enabled.
+     */
+    private fun enforceRequiredPermissions(): Boolean {
+        val missing = requiredPermissionCountMissing()
+        if (missing == 0) {
+            if (permissionGateShowing) {
+                permissionGateShowing = false
+                bottomNavVisibility(true)
+                navStack.clear()
+                render("dashboard")
+                continuePendingTileStart()
+                continuePendingTileStop()
+            }
+            return false
+        }
+
+        if (!permissionGateShowing) {
+            permissionGateShowing = true
+            navStack.clear()
+            bottomNavVisibility(false)
+            toolbarBack.visibility = View.GONE
+            rootContent.removeAllViews()
+            layoutInflater.inflate(R.layout.screen_required_permissions, rootContent, true)
+            title.text = "השלמת הרשאות"
+            rootContent.findViewById<Button>(R.id.requiredNotificationsAction)
+                .setOnClickListener { requestOrOpenNotificationSettings() }
+            rootContent.findViewById<Button>(R.id.requiredAccessibilityAction)
+                .setOnClickListener { openRequiredSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "לא ניתן לפתוח את הגדרות הנגישות") }
+            rootContent.findViewById<Button>(R.id.requiredUsageAction)
+                .setOnClickListener { openRequiredSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS), "לא ניתן לפתוח את הגדרות נתוני השימוש") }
+            rootContent.findViewById<Button>(R.id.requiredBatteryAction)
+                .setOnClickListener { openBatteryOptimizationSettings() }
+        }
+
+        updateRequiredPermissionsScreen()
+        return true
+    }
+
+    private fun updateRequiredPermissionsScreen() {
+        if (!permissionGateShowing) return
+        val notificationReady = hasNotificationPermission()
+        val accessibilityReady = accessibilityEnabled()
+        val usageReady = usageStats.hasUsageAccess()
+        val batteryReady = ignoresBatteryOptimizations()
+
+        setPermissionStatus(R.id.requiredNotificationsStatus, notificationReady,
+            if (Build.VERSION.SDK_INT < 33) "לא נדרש בגרסת Android זו" else if (notificationReady) "הושלם" else "נדרש")
+        setPermissionStatus(R.id.requiredAccessibilityStatus, accessibilityReady,
+            if (accessibilityReady) "הושלם" else "נדרש")
+        setPermissionStatus(R.id.requiredUsageStatus, usageReady,
+            if (usageReady) "הושלם" else "נדרש")
+        setPermissionStatus(R.id.requiredBatteryStatus, batteryReady,
+            if (batteryReady) "הוגדר" else "נדרש")
+
+        rootContent.findViewById<Button>(R.id.requiredNotificationsAction).visibility =
+            if (notificationReady) View.GONE else View.VISIBLE
+        rootContent.findViewById<Button>(R.id.requiredAccessibilityAction).visibility =
+            if (accessibilityReady) View.GONE else View.VISIBLE
+        rootContent.findViewById<Button>(R.id.requiredUsageAction).visibility =
+            if (usageReady) View.GONE else View.VISIBLE
+        rootContent.findViewById<Button>(R.id.requiredBatteryAction).visibility =
+            if (batteryReady) View.GONE else View.VISIBLE
+
+        val done = listOf(notificationReady, accessibilityReady, usageReady, batteryReady).count { it }
+        rootContent.findViewById<TextView>(R.id.requiredPermissionsProgress).text =
+            "$done מתוך 4 הגדרות הושלמו"
+        rootContent.findViewById<TextView>(R.id.requiredPermissionsHint).text =
+            if (done == 4) "כל ההגדרות הושלמו. האפליקציה נפתחת…" else
+                "יש להשלים את ההגדרות החסרות במסכי Android ולחזור לכאן. האפליקציה תמשיך אוטומטית."
+    }
+
+    private fun setPermissionStatus(viewId: Int, ready: Boolean, label: String) {
+        rootContent.findViewById<TextView>(viewId)?.apply {
+            text = label
+            setTextColor(getColor(if (ready) R.color.success else R.color.error))
+        }
+    }
+
+    private fun requestOrOpenNotificationSettings() {
+        if (Build.VERSION.SDK_INT < 33 || hasNotificationPermission()) {
+            updateRequiredPermissionsScreen()
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !ignoresBatteryOptimizations() &&
-            !prefs.getBoolean("battery_prompt_shown", false)) {
-            prefs.edit().putBoolean("battery_prompt_shown", true).apply()
-            AlertDialog.Builder(this)
-                .setTitle("שמירה על פעילות ברקע")
-                .setMessage("חיסכון בסוללה עלול להפסיק שירותי ניטור או לקטוע סרטון. אפשר לבקש מ־Android להחריג את האפליקציה. גם לאחר האישור, המערכת אינה מבטיחה פעולה רציפה בכל מצב.")
-                .setNegativeButton("לא עכשיו", null)
-                .setPositiveButton("פתיחת הגדרת סוללה") { _, _ -> openBatteryOptimizationSettings() }
-                .show()
+        val prefs = getSharedPreferences("required_permissions", MODE_PRIVATE)
+        if (!prefs.getBoolean("notification_request_attempted", false)) {
+            prefs.edit().putBoolean("notification_request_attempted", true).apply()
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
+            return
+        }
+        val appNotifications = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        openRequiredSettings(appNotifications, "לא ניתן לפתוח את הגדרות ההתראות")
+    }
+
+    private fun openRequiredSettings(intent: Intent, errorMessage: String) {
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -367,20 +459,8 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == BACKGROUND_NOTIFICATION_REQUEST) {
             updateBackgroundPermissionStatus()
             updateBackgroundWarning()
-            maybePromptBackgroundSetup()
+            if (mainUiInitialized) enforceRequiredPermissions()
         }
-    }
-    private fun maybePromptUsageAccess() {
-        if (permissionPromptShown || usageStats.hasUsageAccess()) return
-        permissionPromptShown = true
-        AlertDialog.Builder(this)
-            .setTitle("נדרשת גישה לנתוני שימוש")
-            .setMessage("כדי שהאפליקציה תוכל להציג זמן שימוש ופתיחות בצורה מלאה, יש להפעיל גישה לנתוני שימוש בהגדרות Android.")
-            .setNegativeButton("אחר כך", null)
-            .setPositiveButton("פתיחת ההגדרה") { _, _ ->
-                runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
-            }
-            .show()
     }
 
     private fun setupNav() {

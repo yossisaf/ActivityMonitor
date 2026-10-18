@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/surface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="לפני שמתחילים"
+            android:textSize="25sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="חסרות הגדרות הדרושות לפעילות מלאה. בחר כל הגדרה שחסרה, אשר אותה ב־Android וחזור לכאן. המסך הזה יישאר פתוח עד להשלמתן."
+            android:textSize="14sp"
+            android:lineSpacingExtra="2dp"
+            android:textColor="@color/text_secondary" />
+
+        <TextView
+            android:id="@+id/requiredPermissionsProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="0 מתוך 4 הגדרות הושלמו"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="התראות"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/requiredNotificationsStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="נדרש"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/error" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="כדי לראות בבירור מתי שירות ההסרטה פעיל. בגרסאות Android ישנות יותר אין צורך בהרשאה זו."
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/requiredNotificationsAction"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="אישור התראות"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="זיהוי אפליקציות"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/requiredAccessibilityStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="נדרש"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/error" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="מאפשר להתחיל ולעצור הסרטה אוטומטית כשעוברים לאפליקציות שסומנו. השירות מוגבל לזיהוי מעברים בין אפליקציות."
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/requiredAccessibilityAction"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="הפעלת זיהוי אפליקציות"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="גישה לנתוני שימוש"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/requiredUsageStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="נדרש"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/error" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="מאפשר לאפליקציה לזהות נתוני שימוש לצורך תמיכה בפעולות הניטור."
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/requiredUsageAction"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="פתיחת גישת נתוני שימוש"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:padding="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="פעילות ברקע"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/requiredBatteryStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="נדרש"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/error" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="מבקש מ־Android שלא להפסיק את שירות ההסרטה בגלל חיסכון בסוללה. אין הבטחה שהמערכת לא תעצור שירותים בכל מצב."
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+            <Button
+                android:id="@+id/requiredBatteryAction"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="7dp"
+                android:text="הגדרת פעילות ברקע"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/requiredPermissionsHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:text="האפליקציה תמשיך אוטומטית לאחר השלמת ההגדרות."
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="10dp"
+            android:background="@color/surface_tint"
+            android:text="שים לב: בכל התחלת הסרטה, Android תציג אישור נפרד לצילום המסך. האישור הזה אינו נשמר כהרשאה קבועה."
+            android:textSize="12sp"
+            android:textColor="@color/text_primary" />
+    </LinearLayout>
+</ScrollView>
