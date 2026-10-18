@@ -140,12 +140,13 @@ class ScreenCaptureService : Service() {
         try {
             recordingError = null
             val metrics = resources.displayMetrics
-            val screenW = metrics.widthPixels.coerceAtLeast(320)
-            val screenH = metrics.heightPixels.coerceAtLeast(320)
-            val scale = minOf(1f, 480f / maxOf(screenW, screenH).toFloat())
-            val width = ((screenW * scale).toInt().coerceAtLeast(320) / 2) * 2
-            val height = ((screenH * scale).toInt().coerceAtLeast(320) / 2) * 2
-            val density = (metrics.densityDpi * scale).toInt().coerceIn(120, 320)
+            val screenW = metrics.widthPixels.coerceAtLeast(2)
+            val screenH = metrics.heightPixels.coerceAtLeast(2)
+            // Keep a practical resolution while preserving the screen aspect ratio.
+            val scale = minOf(1f, 720f / maxOf(screenW, screenH).toFloat())
+            val width = (((screenW * scale).toInt().coerceAtLeast(2) / 2) * 2).coerceAtLeast(2)
+            val height = (((screenH * scale).toInt().coerceAtLeast(2) / 2) * 2).coerceAtLeast(2)
+            val density = (metrics.densityDpi * scale).toInt().coerceAtLeast(1)
 
             val root = File(
                 getExternalFilesDir(Environment.DIRECTORY_MOVIES),
@@ -169,10 +170,14 @@ class ScreenCaptureService : Service() {
             mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             mr.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
             mr.setVideoSize(width, height)
-            mr.setVideoFrameRate(1)
-            mr.setVideoEncodingBitRate(220_000)
+            mr.setVideoFrameRate(15)
+            mr.setVideoEncodingBitRate(700_000)
             mr.setOutputFile(file.absolutePath)
             mr.prepare()
+
+            // Start the encoder before connecting the virtual display so the
+            // first captured frames are written to an active encoder surface.
+            mr.start()
 
             val display = projection?.createVirtualDisplay(
                 "ActivityMonitorCapture",
@@ -186,7 +191,6 @@ class ScreenCaptureService : Service() {
             ) ?: error("Android לא אפשרה ליצור תצוגת הקלטה")
             candidateDisplay = display
 
-            mr.start()
             virtualDisplay = display
             recorder = mr
             recordingPackage = packageName
@@ -211,25 +215,37 @@ class ScreenCaptureService : Service() {
 
 
     private fun stopRecording() {
-        val display = virtualDisplay
-        virtualDisplay = null
-        runCatching { display?.release() }
-
         val mr = recorder
         recorder = null
         val file = recordingFile
         recordingFile = null
         recordingPackage = null
 
+        // Finalize the MP4 while the virtual display is still connected. Releasing
+        // the display first can starve MediaRecorder and leave a corrupt/black file.
+        var stopFailed = false
         if (mr != null) {
-            runCatching { mr.stop() }
-            runCatching { mr.reset() }
-            runCatching { mr.release() }
+            try {
+                mr.stop()
+            } catch (_: Exception) {
+                stopFailed = true
+            } finally {
+                runCatching { mr.reset() }
+                runCatching { mr.release() }
+            }
         }
-        if (file != null && (!file.exists() || file.length() < 8_192L)) {
+
+        val display = virtualDisplay
+        virtualDisplay = null
+        runCatching { display?.release() }
+
+        val usableFile = file != null && file.exists() && file.length() >= 8_192L
+        if (file != null && (stopFailed || !usableFile)) {
             runCatching { file.delete() }
+            recordingError = "הסרטון לא נשמר כראוי. נסה להקליט שוב והשאר את ההסרטה פעילה עד לסיום."
+        } else {
+            recordingError = null
         }
-        recordingError = null
         if (running) refreshNotification()
     }
 
