@@ -208,6 +208,8 @@ class MainActivity : AppCompatActivity() {
             navStack.clear()
             render("dashboard")
             continuePendingTileStop()
+            // Allow the emergency stop action, then enforce any other missing permissions.
+            if (enforceRequiredPermissions()) return
             return
         }
 
@@ -432,26 +434,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openBackgroundSetup() {
-        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission()) {
-            val alreadyPrompted = getSharedPreferences("background_setup", MODE_PRIVATE)
-                .getBoolean("notification_prompt_shown", false)
-            if (alreadyPrompted) {
-                runCatching {
-                    startActivity(
-                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                    )
-                }
-            } else {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), BACKGROUND_NOTIFICATION_REQUEST)
-            }
-            return
+        when {
+            !hasNotificationPermission() -> requestOrOpenNotificationSettings()
+            !accessibilityEnabled() ->
+                openRequiredSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "לא ניתן לפתוח את הגדרות הנגישות")
+            !usageStats.hasUsageAccess() ->
+                openRequiredSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS), "לא ניתן לפתוח את הגדרות נתוני השימוש")
+            !ignoresBatteryOptimizations() -> openBatteryOptimizationSettings()
+            else -> AlertDialog.Builder(this)
+                .setTitle("הגדרות הרקע הושלמו")
+                .setMessage("כל ההרשאות הנדרשות פעילות. עדיין ייתכן ש־Android או יצרן הטלפון יגבילו פעילות ברקע במצבים מסוימים.")
+                .setPositiveButton("הבנתי", null)
+                .show()
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !ignoresBatteryOptimizations()) {
-            openBatteryOptimizationSettings()
-            return
-        }
-        runCatching { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) }
     }
 
     private fun openBatteryOptimizationSettings() {
