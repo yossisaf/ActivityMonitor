@@ -645,15 +645,21 @@ class MainActivity : AppCompatActivity() {
     private fun loadApps() {
         val selectedBefore = getScreenRecordingPackages()
         val apps = runCatching {
-            packageManager.getInstalledApplications(0)
+            // Show apps that have a normal launcher entry, rather than every installed
+            // package (which also includes hidden components, services and system internals).
+            val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            packageManager.queryIntentActivities(launcherIntent, 0)
                 .asSequence()
-                .filter { it.packageName != packageName }
-                .map { info ->
-                    RecordingAppRow(
-                        packageName = info.packageName,
-                        name = runCatching { packageManager.getApplicationLabel(info).toString() }
-                            .getOrDefault(info.packageName).ifBlank { info.packageName }
-                    )
+                .mapNotNull { resolved ->
+                    val activityInfo = resolved.activityInfo ?: return@mapNotNull null
+                    val appInfo = activityInfo.applicationInfo ?: return@mapNotNull null
+                    if (!activityInfo.enabled || !appInfo.enabled || appInfo.packageName == packageName) {
+                        return@mapNotNull null
+                    }
+                    val label = runCatching { packageManager.getApplicationLabel(appInfo).toString() }
+                        .getOrDefault("")
+                        .ifBlank { appInfo.packageName }
+                    RecordingAppRow(packageName = appInfo.packageName, name = label)
                 }
                 .distinctBy { it.packageName }
                 .sortedBy { it.name.lowercase(java.util.Locale.ROOT) }
@@ -686,7 +692,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateAppsSelectionSummary() {
         if (navStack.lastOrNull() != "apps") return
         rootContent.findViewById<TextView>(R.id.appsCount)?.text =
-            "${allRecordingApps.size} אפליקציות מותקנות במכשיר"
+            "${allRecordingApps.size} אפליקציות זמינות להפעלה במגירת האפליקציות"
         val selected = getScreenRecordingPackages().size
         rootContent.findViewById<TextView>(R.id.selectedAppsCount)?.text =
             if (selected == 0) "לא נבחרו אפליקציות" else "נבחרו $selected אפליקציות"
